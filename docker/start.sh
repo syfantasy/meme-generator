@@ -58,7 +58,7 @@ if [ ! -f /app/config/config.toml ]; then
 fi
 
 # 设置Python路径
-export PYTHONPATH="/app:/app/core:/app/contrib:/app/emoji:$PYTHONPATH"
+export PYTHONPATH="/app:/app/core:/data:$PYTHONPATH"
 
 # 检查表情包目录
 echo "Checking meme directories..."
