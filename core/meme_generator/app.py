@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 
 import filetype
 from fastapi import Depends, FastAPI, Form, HTTPException, Response, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
 from meme_generator.compat import model_dump, model_json_schema, type_validate_python
@@ -20,6 +21,31 @@ from meme_generator.utils import MemeProperties, render_meme_list, run_sync
 from meme_generator.version import __version__
 
 app = FastAPI()
+
+# 添加CORS中间件支持跨域请求
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有HTTP方法
+    allow_headers=["*"],  # 允许所有请求头
+)
+
+# 确保JSON响应使用UTF-8编码
+import json
+from fastapi.responses import JSONResponse
+
+class UTF8JSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+app.default_response_class = UTF8JSONResponse
 
 
 class MemeArgsResponse(BaseModel):
@@ -139,6 +165,41 @@ def register_routers():
     @app.get("/memes/keys")
     def _():
         return get_meme_keys()
+
+    @app.get("/memes")
+    def _():
+        """返回所有meme的完整信息，包括关键词"""
+        memes = []
+        for meme in sorted(get_memes(), key=lambda meme: meme.key):
+            args_type_response = None
+            if args_type := meme.params_type.args_type:
+                args_model = args_type.args_model
+                args_type_response = MemeArgsResponse(
+                    args_model=model_json_schema(args_model),
+                    args_examples=[
+                        model_dump(example) for example in args_type.args_examples
+                    ],
+                    parser_options=args_type.parser_options,
+                )
+
+            meme_info = MemeInfoResponse(
+                key=meme.key,
+                params_type=MemeParamsResponse(
+                    min_images=meme.params_type.min_images,
+                    max_images=meme.params_type.max_images,
+                    min_texts=meme.params_type.min_texts,
+                    max_texts=meme.params_type.max_texts,
+                    default_texts=meme.params_type.default_texts,
+                    args_type=args_type_response,
+                ),
+                keywords=meme.keywords,
+                shortcuts=meme.shortcuts,
+                tags=meme.tags,
+                date_created=meme.date_created,
+                date_modified=meme.date_modified,
+            )
+            memes.append(meme_info)
+        return memes
 
     @app.get("/memes/{key}/info")
     def _(key: str):
