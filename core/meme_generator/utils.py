@@ -377,20 +377,22 @@ def translate_with_openai(text: str, lang_from: str = "auto", lang_to: str = "zh
         )
     
     # 构建翻译提示词
+    lang_map = {
+        "en": "英文",
+        "zh": "中文",
+        "ja": "日文",
+        "jp": "日文",  # 兼容jp和ja两种日语代码
+        "ko": "韩文",
+        "fr": "法文",
+        "de": "德文",
+        "es": "西班牙文",
+        "ru": "俄文"
+    }
+    
     if lang_from == "auto":
-        prompt = f"请将以下文本翻译成中文，只返回翻译结果，不要添加任何解释：\n{text}"
+        to_lang = lang_map.get(lang_to, lang_to)
+        prompt = f"请将以下文本翻译成{to_lang}，只返回翻译结果，不要添加任何解释：\n{text}"
     else:
-        lang_map = {
-            "en": "英文",
-            "zh": "中文",
-            "ja": "日文",
-            "jp": "日文",  # 兼容jp和ja两种日语代码
-            "ko": "韩文",
-            "fr": "法文",
-            "de": "德文",
-            "es": "西班牙文",
-            "ru": "俄文"
-        }
         from_lang = lang_map.get(lang_from, lang_from)
         to_lang = lang_map.get(lang_to, lang_to)
         prompt = f"请将以下{from_lang}文本翻译成{to_lang}，只返回翻译结果，不要添加任何解释：\n{text}"
