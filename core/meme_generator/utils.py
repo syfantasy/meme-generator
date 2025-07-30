@@ -384,6 +384,7 @@ def translate_with_openai(text: str, lang_from: str = "auto", lang_to: str = "zh
             "en": "英文",
             "zh": "中文",
             "ja": "日文",
+            "jp": "日文",  # 兼容jp和ja两种日语代码
             "ko": "韩文",
             "fr": "法文",
             "de": "德文",
