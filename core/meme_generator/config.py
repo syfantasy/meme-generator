@@ -15,6 +15,21 @@ class MemeConfig(BaseModel):
     load_builtin_memes: bool = True
     meme_dirs: list[Path] = []
     meme_disabled_list: list[str] = []
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        # 自动添加额外仓库目录到meme_dirs
+        base_dir = Path(__file__).parent.parent.parent
+        
+        # 添加contrib目录
+        contrib_dir = base_dir / "contrib" / "memes"
+        if contrib_dir.exists() and contrib_dir not in self.meme_dirs:
+            self.meme_dirs.append(contrib_dir)
+        
+        # 添加emoji目录
+        emoji_dir = base_dir / "emoji" / "emoji"
+        if emoji_dir.exists() and emoji_dir not in self.meme_dirs:
+            self.meme_dirs.append(emoji_dir)
 
 
 class ResourceConfig(BaseModel):
