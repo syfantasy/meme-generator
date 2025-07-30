@@ -108,6 +108,28 @@ class Config(BaseModel):
         if "gif" not in config_data:
             config_data["gif"] = {}
         
+        # Meme配置
+        if meme_dirs := os.getenv("MEME_DIRS"):
+            try:
+                import json
+                # 解析JSON格式的目录列表
+                dirs_list = json.loads(meme_dirs)
+                config_data["meme"]["meme_dirs"] = [Path(d) for d in dirs_list]
+            except (json.JSONDecodeError, TypeError):
+                # 如果不是JSON格式，尝试按逗号分割
+                dirs_list = [d.strip() for d in meme_dirs.split(",") if d.strip()]
+                config_data["meme"]["meme_dirs"] = [Path(d) for d in dirs_list]
+        
+        if load_builtin := os.getenv("LOAD_BUILTIN_MEMES"):
+            config_data["meme"]["load_builtin_memes"] = load_builtin.lower() in ("true", "1", "yes")
+        
+        if disabled_list := os.getenv("MEME_DISABLED_LIST"):
+            try:
+                import json
+                config_data["meme"]["meme_disabled_list"] = json.loads(disabled_list)
+            except (json.JSONDecodeError, TypeError):
+                config_data["meme"]["meme_disabled_list"] = [d.strip() for d in disabled_list.split(",") if d.strip()]
+        
         # 翻译配置
         if translator_type := os.getenv("TRANSLATOR_TYPE"):
             config_data["translate"]["translator_type"] = translator_type
