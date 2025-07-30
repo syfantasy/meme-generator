@@ -409,10 +409,17 @@ def translate_with_openai(text: str, lang_from: str = "auto", lang_to: str = "zh
         "Content-Type": "application/json"
     }
     
-    # 确保API base URL格式正确
-    if not api_base.endswith("/"):
-        api_base += "/"
-    url = api_base + "v1/chat/completions"
+    # 智能构建API URL
+    if api_base.endswith("/v1") or api_base.endswith("/v1/"):
+        # 如果已经包含 /v1，直接添加端点
+        base_url = api_base.rstrip("/")
+        url = f"{base_url}/chat/completions"
+    elif api_base.endswith("/"):
+        # 如果以 / 结尾但没有 v1，添加 v1/chat/completions
+        url = f"{api_base}v1/chat/completions"
+    else:
+        # 如果没有以 / 结尾，添加 /v1/chat/completions
+        url = f"{api_base}/v1/chat/completions"
     
     try:
         resp = httpx.post(url, json=data, headers=headers, timeout=timeout)
