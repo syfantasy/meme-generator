@@ -36,25 +36,35 @@ def load_meme(module_path: Union[str, Path]):
 def load_memes(dir_path: Union[str, Path]):
     if isinstance(dir_path, Path):
         dir_path = str(dir_path.resolve())
-
-    for module_info in pkgutil.iter_modules([dir_path]):
-        if module_info.name.startswith("_"):
-            continue
-        if not (
-            module_spec := module_info.module_finder.find_spec(module_info.name, None)
-        ):
-            continue
-        if not (module_path := module_spec.origin):
-            continue
-        if not (module_loader := module_spec.loader):
-            continue
-        try:
-            module = importlib.util.module_from_spec(module_spec)
-            module_loader.exec_module(module)
-        except Exception as e:
-            logger.opt(colors=True, exception=e).error(
-                f"Failed to import {module_path}!"
-            )
+    
+    if not Path(dir_path).exists():
+        return
+    
+    try:
+        for module_info in pkgutil.iter_modules([dir_path]):
+            if module_info.name.startswith("_"):
+                continue
+                
+            if not (
+                module_spec := module_info.module_finder.find_spec(module_info.name, None)
+            ):
+                continue
+                
+            if not (module_path := module_spec.origin):
+                continue
+                
+            if not (module_loader := module_spec.loader):
+                continue
+                
+            try:
+                module = importlib.util.module_from_spec(module_spec)
+                module_loader.exec_module(module)
+            except Exception as e:
+                logger.opt(colors=True, exception=e).error(
+                    f"Failed to import {module_path}!"
+                )
+    except Exception:
+        pass
 
 
 def add_meme(
