@@ -1,0 +1,53 @@
+# meme-generator 配置文件示例
+# 复制此文件为 config.toml 并修改相应配置
+
+[meme]
+# 是否加载内置表情包
+load_builtin_memes = true
+# 额外的表情包目录列表
+meme_dirs = []
+# 禁用的表情包列表
+meme_disabled_list = []
+
+[resource]
+# 资源下载URL（可选）
+resource_url = ""
+# 资源下载URL列表
+resource_urls = [
+    "https://raw.githubusercontent.com/MemeCrafters/meme-generator/",
+    "https://mirror.ghproxy.com/https://raw.githubusercontent.com/MemeCrafters/meme-generator/",
+    "https://cdn.jsdelivr.net/gh/MemeCrafters/meme-generator@",
+    "https://fastly.jsdelivr.net/gh/MemeCrafters/meme-generator@",
+    "https://raw.gitmirror.com/MemeCrafters/meme-generator/",
+]
+
+[gif]
+# GIF最大大小（MB）
+gif_max_size = 10.0
+# GIF最大帧数
+gif_max_frames = 100
+
+[translate]
+# 翻译服务类型: "baidu" 或 "openai"
+translator_type = "baidu"
+
+# 百度翻译配置
+baidu_trans_appid = ""
+baidu_trans_apikey = ""
+
+# OpenAI格式翻译配置
+# 支持OpenAI官方API或兼容OpenAI格式的API（如OneAPI、FastGPT等）
+openai_api_base = "https://api.openai.com"
+openai_api_key = ""
+openai_model = "gpt-3.5-turbo"
+openai_timeout = 30
+
+[server]
+# 服务器监听地址
+host = "127.0.0.1"
+# 服务器监听端口
+port = 2233
+
+[log]
+# 日志级别: DEBUG, INFO, WARNING, ERROR
+log_level = "INFO"

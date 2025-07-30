@@ -1,0 +1,38 @@
+# Core meme-generator dependencies
+httpx>=0.20.0,<1.0.0
+loguru>=0.6.0,<1.0.0
+pil-utils>=0.2.0
+Pillow>=10.0.0
+toml>=0.10.2
+fastapi>=0.93.0,<1.0.0
+uvicorn>=0.20.0,<1.0.0
+python-multipart>=0.0.9,<0.1.0,!=0.0.13,!=0.0.14
+filetype>=1.2.0
+rich>=13.0.0
+dateparser>=1.2.0
+qrcode>=8.0
+typing-extensions>=4.4.0,<5.0.0
+arclet-alconna>=1.8.23,!=1.8.27
+arclet-alconna-tools>=0.7.9
+skia-python>=138.0
+
+# Additional dependencies for meme_emoji
+nonebot-adapter-onebot
+websockets
+nonebot-plugin-memes==0.7.12
+nonebot-plugin-sticker-saver
+nonebot_plugin_imagetools
+nonebot-plugin-orm[default]
+nonebot-plugin-datastore
+nonebot-plugin-apscheduler
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# Docker health check
+curl-cffi>=0.5.0

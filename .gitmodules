@@ -1,0 +1,14 @@
+[submodule "core"]
+	path = core
+	url = https://github.com/MemeCrafters/meme-generator.git
+	branch = main
+
+[submodule "contrib"]
+	path = contrib
+	url = https://github.com/MemeCrafters/meme-generator-contrib.git
+	branch = main
+
+[submodule "emoji"]
+	path = emoji
+	url = https://github.com/anyliew/meme_emoji.git
+	branch = main

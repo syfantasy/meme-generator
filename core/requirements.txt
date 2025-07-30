@@ -1,0 +1,25 @@
+# meme-generator 核心依赖
+httpx>=0.20.0,<1.0.0
+loguru>=0.6.0,<1.0.0
+pil-utils>=0.2.0
+Pillow>=10.0.0
+toml>=0.10.2
+fastapi>=0.93.0,<1.0.0
+uvicorn>=0.20.0,<1.0.0
+python-multipart>=0.0.9,<0.1.0,!=0.0.13,!=0.0.14
+filetype>=1.2.0
+rich>=13.0.0
+dateparser>=1.2.0
+qrcode>=8.0
+typing-extensions>=4.4.0,<5.0.0
+arclet-alconna>=1.8.23,!=1.8.27
+arclet-alconna-tools>=0.7.9
+skia-python>=138.0
+
+# Hugging Face Spaces 部署依赖
+gradio>=4.0.0
+requests>=2.25.0
+
+# 额外依赖
+numpy
+opencv-python-headless

@@ -1,0 +1,29 @@
+[meme]
+load_builtin_memes = $LOAD_BUILTIN_MEMES
+meme_dirs = $MEME_DIRS
+meme_disabled_list = $MEME_DISABLED_LIST
+
+[gif]
+gif_max_size = $GIF_MAX_SIZE
+gif_max_frames = $GIF_MAX_FRAMES
+
+[translate]
+# 翻译服务类型: "baidu" 或 "openai"
+translator_type = "$TRANSLATOR_TYPE"
+
+# 百度翻译配置
+baidu_trans_appid = "$BAIDU_TRANS_APPID"
+baidu_trans_apikey = "$BAIDU_TRANS_APIKEY"
+
+# OpenAI格式翻译配置
+openai_api_base = "$OPENAI_API_BASE"
+openai_api_key = "$OPENAI_API_KEY"
+openai_model = "$OPENAI_MODEL"
+openai_timeout = $OPENAI_TIMEOUT
+
+[server]
+host = "0.0.0.0"
+port = 2233
+
+[log]
+log_level = "$LOG_LEVEL"

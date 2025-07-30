@@ -1,0 +1,193 @@
+name: Sync Upstream Repositories
+
+on:
+  schedule:
+    # 每天UTC 02:00 (北京时间10:00) 运行
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync all repositories'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync-repositories:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo:
+          - name: "meme-generator"
+            upstream: "https://github.com/MemeCrafters/meme-generator.git"
+            local_path: "core"
+            branch: "main"
+          - name: "meme-generator-contrib"
+            upstream: "https://github.com/MemeCrafters/meme-generator-contrib.git"
+            local_path: "contrib"
+            branch: "main"
+          - name: "meme_emoji"
+            upstream: "https://github.com/anyliew/meme_emoji.git"
+            local_path: "emoji"
+            branch: "main"
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup upstream remote for ${{ matrix.repo.name }}
+        run: |
+          cd ${{ matrix.repo.local_path }}
+          git remote add upstream ${{ matrix.repo.upstream }} || true
+          git fetch upstream
+
+      - name: Check for updates
+        id: check_updates
+        run: |
+          cd ${{ matrix.repo.local_path }}
+          LOCAL_COMMIT=$(git rev-parse HEAD)
+          UPSTREAM_COMMIT=$(git rev-parse upstream/${{ matrix.repo.branch }})
+          
+          echo "local_commit=$LOCAL_COMMIT" >> $GITHUB_OUTPUT
+          echo "upstream_commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+          
+          if [ "$LOCAL_COMMIT" != "$UPSTREAM_COMMIT" ] || [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "Updates found for ${{ matrix.repo.name }}"
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "No updates for ${{ matrix.repo.name }}"
+          fi
+
+      - name: Attempt automatic merge
+        if: steps.check_updates.outputs.has_updates == 'true'
+        id: auto_merge
+        run: |
+          cd ${{ matrix.repo.local_path }}
+          
+          # 尝试自动合并
+          if git merge upstream/${{ matrix.repo.branch }} --no-edit; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+            echo "Auto merge successful for ${{ matrix.repo.name }}"
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            echo "Auto merge failed for ${{ matrix.repo.name }}, conflicts detected"
+            git merge --abort
+          fi
+
+      - name: Commit and push successful merge
+        if: steps.check_updates.outputs.has_updates == 'true' && steps.auto_merge.outputs.merge_success == 'true'
+        run: |
+          cd ${{ matrix.repo.local_path }}
+          git push origin main
+          echo "Successfully synced ${{ matrix.repo.name }}"
+
+      - name: Create PR for conflicted merge
+        if: steps.check_updates.outputs.has_updates == 'true' && steps.auto_merge.outputs.merge_success == 'false'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "sync: Update ${{ matrix.repo.name }} from upstream"
+          title: "🔄 Sync ${{ matrix.repo.name }} - Manual Review Required"
+          body: |
+            ## 🔄 Upstream Sync for ${{ matrix.repo.name }}
+            
+            This PR contains updates from the upstream repository that require manual review due to conflicts.
+            
+            **Upstream Repository:** ${{ matrix.repo.upstream }}
+            **Local Commit:** `${{ steps.check_updates.outputs.local_commit }}`
+            **Upstream Commit:** `${{ steps.check_updates.outputs.upstream_commit }}`
+            
+            ### 📋 Manual Steps Required:
+            1. Review the conflicts in the changed files
+            2. Resolve conflicts manually
+            3. Test the integration
+            4. Merge this PR
+            
+            ### 🔍 Files to Review:
+            Please check the following areas for potential issues:
+            - Configuration files
+            - Dependencies in requirements.txt/pyproject.toml
+            - API compatibility
+            - New meme implementations
+            
+            ---
+            *This PR was automatically created by the sync workflow.*
+          branch: sync/${{ matrix.repo.name }}-${{ github.run_number }}
+          delete-branch: true
+
+  build-and-test:
+    needs: sync-repositories
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Test meme generator import
+        run: |
+          cd core
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          try:
+              import meme_generator
+              print('✅ Core meme_generator imported successfully')
+          except Exception as e:
+              print(f'❌ Failed to import meme_generator: {e}')
+              sys.exit(1)
+          "
+
+      - name: Build Docker image
+        run: |
+          docker build -t meme-generator-unified:test -f docker/Dockerfile .
+
+      - name: Test Docker container
+        run: |
+          docker run --rm -d --name test-container -p 2233:2233 meme-generator-unified:test
+          sleep 30
+          
+          # 测试健康检查
+          if curl -f http://localhost:2233/docs; then
+            echo "✅ Docker container is healthy"
+          else
+            echo "❌ Docker container health check failed"
+            docker logs test-container
+            exit 1
+          fi
+          
+          docker stop test-container
+
+  notify:
+    needs: [sync-repositories, build-and-test]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify completion
+        run: |
+          echo "🎉 Sync workflow completed"
+          echo "Sync status: ${{ needs.sync-repositories.result }}"
+          echo "Build status: ${{ needs.build-and-test.result }}"
