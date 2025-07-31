@@ -1,11 +1,11 @@
 [submodule "core"]
 	path = core
-	url = https://github.com/MeetWq/meme-generator.git
+	url = https://github.com/MemeCrafters/meme-generator.git
 	branch = main
 
 [submodule "contrib"]
 	path = contrib
-	url = https://github.com/MeetWq/meme-generator-contrib.git
+	url = https://github.com/MemeCrafters/meme-generator-contrib.git
 	branch = main
 
 [submodule "emoji"]
