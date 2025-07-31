@@ -112,13 +112,7 @@ jobs:
             echo "No changes to commit"
           else
             echo "Committing emergency fix..."
-            git commit -m "emergency: fix submodule setup
-
-- Completely reset all submodules
-- Direct clone and convert to submodules
-- Ensure all directories exist
-
-Emergency fix by GitHub Actions"
+            git commit -m "emergency: fix submodule setup - reset all submodules - ensure directories exist"
             
             echo "Pushing changes..."
             git push origin main || git push origin master || {
