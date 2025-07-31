@@ -1,12 +1,11 @@
 name: Build and Push Docker Image
 
 on:
-  # 自动触发暂时注释，方便手动测试
-  # push:
-  #   branches: [ main ]
-  #   tags: [ 'v*' ]
-  # pull_request:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       tag:
