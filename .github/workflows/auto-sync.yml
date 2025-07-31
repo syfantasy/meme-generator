@@ -23,6 +23,20 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+    - name: Initialize submodules
+      run: |
+        echo "=== 初始化子模块 ==="
+        git submodule init
+        git submodule update
+        
+        # 检查子模块状态
+        echo "子模块状态："
+        git submodule status
+        
+        # 检查目录是否存在
+        echo "检查目录："
+        ls -la
+
     - name: Update submodules to latest
       run: |
         echo "=== 更新子模块到最新版本 ==="
