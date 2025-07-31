@@ -50,10 +50,26 @@ jobs:
         run: |
           echo "=== Analyzing submodule: ${{ matrix.repo.local_path }} ==="
           
+          # 首先检查.gitmodules文件
+          if [ -f ".gitmodules" ]; then
+            echo "Found .gitmodules file:"
+            cat .gitmodules
+          else
+            echo "No .gitmodules file found"
+          fi
+          
+          echo ""
+          echo "Current directory contents:"
+          ls -la
+          
+          echo ""
+          echo "Git submodule status:"
+          git submodule status || echo "No submodules or error occurred"
+          
           # 检查子模块是否存在
           if [ ! -d "${{ matrix.repo.local_path }}" ]; then
             echo "status=missing" >> $GITHUB_OUTPUT
-            echo "Submodule directory missing"
+            echo "Submodule directory missing - will initialize"
             exit 0
           fi
           
@@ -96,7 +112,19 @@ jobs:
         if: steps.analyze.outputs.status == 'missing'
         run: |
           echo "Initializing missing submodule: ${{ matrix.repo.local_path }}"
-          git submodule update --init --recursive ${{ matrix.repo.local_path }}
+          
+          # 检查.gitmodules中是否定义了这个子模块
+          if grep -q "path = ${{ matrix.repo.local_path }}" .gitmodules 2>/dev/null; then
+            echo "Submodule defined in .gitmodules, initializing..."
+            git submodule update --init --recursive ${{ matrix.repo.local_path }}
+          else
+            echo "Submodule not defined in .gitmodules, adding it..."
+            git submodule add ${{ matrix.repo.upstream }} ${{ matrix.repo.local_path }}
+            git submodule update --init --recursive ${{ matrix.repo.local_path }}
+          fi
+          
+          echo "Submodule initialization completed"
+          ls -la ${{ matrix.repo.local_path }}
 
       - name: Fix non-git directory
         if: steps.analyze.outputs.status == 'not_git'
@@ -108,6 +136,13 @@ jobs:
       - name: Setup upstream and sync
         if: steps.analyze.outputs.status != 'missing' && steps.analyze.outputs.status != 'not_git'
         run: |
+          # 确保目录存在
+          if [ ! -d "${{ matrix.repo.local_path }}" ]; then
+            echo "Directory still missing after initialization, creating..."
+            git submodule add ${{ matrix.repo.upstream }} ${{ matrix.repo.local_path }} || true
+            git submodule update --init --recursive ${{ matrix.repo.local_path }}
+          fi
+          
           cd ${{ matrix.repo.local_path }}
           
           # 设置上游远程仓库
