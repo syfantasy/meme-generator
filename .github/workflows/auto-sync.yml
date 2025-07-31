@@ -32,8 +32,8 @@ jobs:
         cd core
         git remote set-url origin https://github.com/MemeCrafters/meme-generator.git
         git fetch origin
-        git checkout master || git checkout main
-        git pull origin $(git branch --show-current)
+        git checkout main || git checkout -b main origin/main
+        git pull origin main
         cd ..
         
         # 更新contrib子模块
@@ -41,8 +41,8 @@ jobs:
         cd contrib
         git remote set-url origin https://github.com/MemeCrafters/meme-generator-contrib.git
         git fetch origin
-        git checkout master || git checkout main
-        git pull origin $(git branch --show-current)
+        git checkout main || git checkout -b main origin/main
+        git pull origin main
         cd ..
         
         # 更新emoji子模块
@@ -50,8 +50,8 @@ jobs:
         cd emoji
         git remote set-url origin https://github.com/anyliew/meme_emoji.git
         git fetch origin
-        git checkout master || git checkout main
-        git pull origin $(git branch --show-current)
+        git checkout main || git checkout -b main origin/main
+        git pull origin main
         cd ..
 
     - name: Check for changes
