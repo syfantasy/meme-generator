@@ -1,0 +1,102 @@
+name: Auto Sync Upstream Repositories
+
+on:
+  schedule:
+    # 每天UTC时间00:00运行 (北京时间08:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        submodules: true
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Update submodules to latest
+      run: |
+        echo "=== 更新子模块到最新版本 ==="
+        
+        # 更新core子模块
+        echo "更新 core 子模块..."
+        cd core
+        git fetch origin
+        git checkout main || git checkout master
+        git pull origin $(git branch --show-current)
+        cd ..
+        
+        # 更新contrib子模块
+        echo "更新 contrib 子模块..."
+        cd contrib
+        git fetch origin
+        git checkout main || git checkout master
+        git pull origin $(git branch --show-current)
+        cd ..
+        
+        # 更新emoji子模块
+        echo "更新 emoji 子模块..."
+        cd emoji
+        git fetch origin
+        git checkout main || git checkout master
+        git pull origin $(git branch --show-current)
+        cd ..
+
+    - name: Check for changes
+      id: changes
+      run: |
+        if git diff --quiet HEAD; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "没有检测到更新"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "检测到子模块更新"
+          git status
+        fi
+
+    - name: Commit and push changes
+      if: steps.changes.outputs.has_changes == 'true'
+      run: |
+        echo "=== 提交更新 ==="
+        git add .
+        
+        # 生成提交信息
+        COMMIT_MSG="Auto-sync: Update submodules $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        # 添加详细的更新信息
+        echo "" >> commit_details.txt
+        echo "Updated submodules:" >> commit_details.txt
+        git submodule status >> commit_details.txt
+        
+        git commit -m "$COMMIT_MSG" -m "$(cat commit_details.txt)"
+        git push origin main
+
+    - name: Trigger Docker build
+      if: steps.changes.outputs.has_changes == 'true'
+      run: |
+        echo "=== 触发Docker构建 ==="
+        # 触发docker-build工作流
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-build.yml/dispatches \
+          -d '{"ref":"main"}'
+
+    - name: Summary
+      run: |
+        echo "=== 同步完成 ==="
+        if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
+          echo "✅ 检测到更新并已同步"
+          echo "✅ 已触发Docker构建"
+        else
+          echo "ℹ️ 没有检测到更新"
+        fi
