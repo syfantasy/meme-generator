@@ -1,0 +1,161 @@
+name: Emergency Fix - Direct Submodule Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  emergency-fix:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Complete diagnosis
+        run: |
+          echo "=== Complete Repository Diagnosis ==="
+          echo "Working directory: $(pwd)"
+          echo "Git status:"
+          git status
+          echo ""
+          echo "All files and directories:"
+          find . -maxdepth 2 -type d | sort
+          echo ""
+          echo "Git remotes:"
+          git remote -v
+          echo ""
+          echo "Git branches:"
+          git branch -a
+          echo ""
+          echo ".gitmodules content:"
+          if [ -f ".gitmodules" ]; then
+            cat .gitmodules
+          else
+            echo "No .gitmodules file found"
+          fi
+          echo ""
+          echo "Git submodule status:"
+          git submodule status || echo "No submodules configured"
+          echo ""
+          echo ".git directory contents:"
+          ls -la .git/ | head -10
+
+      - name: Nuclear option - Complete reset
+        run: |
+          echo "=== Nuclear Option - Complete Reset ==="
+          
+          # 完全清理所有子模块相关内容
+          echo "Cleaning all submodule traces..."
+          git submodule deinit --all -f 2>/dev/null || true
+          rm -rf .git/modules 2>/dev/null || true
+          rm -rf core contrib emoji 2>/dev/null || true
+          rm -f .gitmodules 2>/dev/null || true
+          
+          # 清理git缓存
+          git rm --cached core contrib emoji 2>/dev/null || true
+          
+          echo "Current state after cleanup:"
+          ls -la
+          
+          # 直接克隆仓库到目录
+          echo "Directly cloning repositories..."
+          git clone https://github.com/MemeCrafters/meme-generator.git core
+          git clone https://github.com/MemeCrafters/meme-generator-contrib.git contrib
+          git clone https://github.com/anyliew/meme_emoji.git emoji
+          
+          echo "Repositories cloned, converting to submodules..."
+          
+          # 删除.git目录，准备转换为子模块
+          rm -rf core/.git contrib/.git emoji/.git
+          
+          # 添加为子模块
+          git submodule add https://github.com/MemeCrafters/meme-generator.git core
+          git submodule add https://github.com/MemeCrafters/meme-generator-contrib.git contrib
+          git submodule add https://github.com/anyliew/meme_emoji.git emoji
+          
+          echo "Submodules added, initializing..."
+          git submodule update --init --recursive
+          
+          echo "Final verification:"
+          ls -la
+          echo ""
+          echo "Submodule status:"
+          git submodule status
+          echo ""
+          echo "Directory contents:"
+          for dir in core contrib emoji; do
+            if [ -d "$dir" ]; then
+              echo "$dir exists with $(ls $dir | wc -l) files"
+              ls -la "$dir" | head -3
+            else
+              echo "$dir MISSING"
+            fi
+          done
+
+      - name: Commit the fix
+        run: |
+          echo "=== Committing the fix ==="
+          
+          # 添加所有更改
+          git add .
+          
+          # 检查是否有更改需要提交
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            echo "Committing emergency fix..."
+            git commit -m "emergency: fix submodule setup
+
+- Completely reset all submodules
+- Direct clone and convert to submodules
+- Ensure all directories exist
+
+Emergency fix by GitHub Actions"
+            
+            echo "Pushing changes..."
+            git push origin main || git push origin master || {
+              echo "Push failed, checking current branch..."
+              git branch
+              current_branch=$(git branch --show-current)
+              echo "Current branch: $current_branch"
+              git push origin $current_branch || echo "Push failed completely"
+            }
+          fi
+
+      - name: Final verification
+        run: |
+          echo "=== Final Verification ==="
+          echo "Repository state after fix:"
+          git status
+          echo ""
+          echo "Submodule status:"
+          git submodule status
+          echo ""
+          echo "Directory verification:"
+          for dir in core contrib emoji; do
+            if [ -d "$dir" ]; then
+              echo "✅ $dir exists"
+              if [ -d "$dir/.git" ] || [ -f "$dir/.git" ]; then
+                echo "   Git repository: ✅"
+              else
+                echo "   Git repository: ❌"
+              fi
+            else
+              echo "❌ $dir MISSING"
+            fi
+          done
+          echo ""
+          echo "Test cd commands:"
+          cd core && echo "✅ Can cd to core" && cd ..
+          cd contrib && echo "✅ Can cd to contrib" && cd ..
+          cd emoji && echo "✅ Can cd to emoji" && cd ..
+          echo ""
+          echo "Emergency fix completed!"
