@@ -1,0 +1,189 @@
+name: Fix Submodules
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'reinitialize'
+        type: choice
+        options:
+          - 'reinitialize'
+          - 'add_missing'
+          - 'force_reset'
+
+jobs:
+  fix-submodules:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Diagnose current state
+        run: |
+          echo "=== Current Repository State ==="
+          echo "Working directory: $(pwd)"
+          echo ""
+          echo "Directory contents:"
+          ls -la
+          echo ""
+          echo ".gitmodules file:"
+          if [ -f ".gitmodules" ]; then
+            cat .gitmodules
+          else
+            echo "No .gitmodules file found"
+          fi
+          echo ""
+          echo "Git submodule status:"
+          git submodule status || echo "No submodules or error"
+          echo ""
+          echo "Checking expected directories:"
+          for dir in core contrib emoji; do
+            if [ -d "$dir" ]; then
+              echo "✅ $dir exists"
+              ls -la "$dir" | head -5
+            else
+              echo "❌ $dir missing"
+            fi
+          done
+
+      - name: Reinitialize submodules
+        if: github.event.inputs.action == 'reinitialize'
+        run: |
+          echo "=== Reinitializing Submodules ==="
+          
+          # 清理现有子模块
+          git submodule deinit --all -f || true
+          
+          # 删除子模块目录
+          rm -rf core contrib emoji
+          
+          # 重新初始化
+          git submodule update --init --recursive --force
+          
+          echo "Submodule reinitialization completed"
+          git submodule status
+
+      - name: Add missing submodules
+        if: github.event.inputs.action == 'add_missing'
+        run: |
+          echo "=== Adding Missing Submodules ==="
+          
+          # 定义子模块
+          declare -A submodules
+          submodules[core]="https://github.com/MemeCrafters/meme-generator.git"
+          submodules[contrib]="https://github.com/MemeCrafters/meme-generator-contrib.git"
+          submodules[emoji]="https://github.com/anyliew/meme_emoji.git"
+          
+          for path in "${!submodules[@]}"; do
+            url="${submodules[$path]}"
+            echo "Processing $path -> $url"
+            
+            if [ ! -d "$path" ]; then
+              echo "Adding missing submodule: $path"
+              git submodule add "$url" "$path" || {
+                echo "Failed to add $path, trying to fix..."
+                rm -rf "$path"
+                git submodule add "$url" "$path"
+              }
+            else
+              echo "Submodule $path already exists"
+            fi
+          done
+          
+          # 更新所有子模块
+          git submodule update --init --recursive
+          
+          echo "Missing submodules added"
+          git submodule status
+
+      - name: Force reset submodules
+        if: github.event.inputs.action == 'force_reset'
+        run: |
+          echo "=== Force Reset Submodules ==="
+          
+          # 完全清理
+          git submodule deinit --all -f || true
+          rm -rf .git/modules/core .git/modules/contrib .git/modules/emoji
+          rm -rf core contrib emoji
+          
+          # 清理.gitmodules
+          if [ -f ".gitmodules" ]; then
+            rm .gitmodules
+          fi
+          
+          # 重新添加子模块
+          git submodule add https://github.com/MemeCrafters/meme-generator.git core
+          git submodule add https://github.com/MemeCrafters/meme-generator-contrib.git contrib
+          git submodule add https://github.com/anyliew/meme_emoji.git emoji
+          
+          # 初始化
+          git submodule update --init --recursive
+          
+          echo "Force reset completed"
+          git submodule status
+
+      - name: Verify fix
+        run: |
+          echo "=== Verification ==="
+          echo "Final submodule status:"
+          git submodule status
+          echo ""
+          echo "Directory verification:"
+          for dir in core contrib emoji; do
+            if [ -d "$dir" ]; then
+              echo "✅ $dir exists and contains:"
+              ls -la "$dir" | head -3
+              if [ -d "$dir/.git" ] || [ -f "$dir/.git" ]; then
+                echo "   Git repository: ✅"
+              else
+                echo "   Git repository: ❌"
+              fi
+            else
+              echo "❌ $dir still missing"
+            fi
+          done
+
+      - name: Commit changes
+        run: |
+          echo "=== Committing Changes ==="
+          
+          # 检查是否有更改
+          if git diff --cached --quiet && git diff --quiet; then
+            echo "No changes to commit"
+          else
+            echo "Committing submodule changes..."
+            git add .gitmodules core contrib emoji || true
+            git commit -m "fix: reinitialize submodules
+
+- Fixed missing submodule directories
+- Ensured proper submodule initialization
+- Action: ${{ github.event.inputs.action }}
+
+Auto-generated by fix-submodules workflow" || echo "Nothing to commit"
+            
+            echo "Pushing changes..."
+            git push origin main || git push origin master || echo "Push failed, may need manual intervention"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=== Fix Summary ==="
+          echo "Action performed: ${{ github.event.inputs.action }}"
+          echo "Workflow completed at: $(date)"
+          echo ""
+          echo "Next steps:"
+          echo "1. Verify that all submodule directories exist"
+          echo "2. Run the smart-sync workflow to sync with upstream"
+          echo "3. Check that the main sync workflow now works correctly"
