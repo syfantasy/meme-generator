@@ -1,11 +1,12 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    branches: [ master ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ master ]
+  # 自动触发已关闭，只保留手动触发
+  # push:
+  #   branches: [ master ]
+  #   tags: [ 'v*' ]
+  # pull_request:
+  #   branches: [ master ]
   workflow_dispatch:
     inputs:
       tag:
