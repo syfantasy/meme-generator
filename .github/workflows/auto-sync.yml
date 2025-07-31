@@ -41,32 +41,50 @@ jobs:
       run: |
         echo "=== 更新子模块到最新版本 ==="
         
+        # 再次检查目录状态
+        echo "当前目录内容："
+        ls -la
+        echo "子模块状态："
+        git submodule status
+        
         # 更新core子模块
-        echo "更新 core 子模块..."
-        cd core
-        git remote set-url origin https://github.com/MemeCrafters/meme-generator.git
-        git fetch origin
-        git checkout main || git checkout -b main origin/main
-        git pull origin main
-        cd ..
+        if [ -d "core" ]; then
+          echo "更新 core 子模块..."
+          cd core
+          git remote set-url origin https://github.com/MemeCrafters/meme-generator.git
+          git fetch origin
+          git checkout main || git checkout -b main origin/main
+          git pull origin main
+          cd ..
+        else
+          echo "❌ core 目录不存在，跳过更新"
+        fi
         
         # 更新contrib子模块
-        echo "更新 contrib 子模块..."
-        cd contrib
-        git remote set-url origin https://github.com/MemeCrafters/meme-generator-contrib.git
-        git fetch origin
-        git checkout main || git checkout -b main origin/main
-        git pull origin main
-        cd ..
+        if [ -d "contrib" ]; then
+          echo "更新 contrib 子模块..."
+          cd contrib
+          git remote set-url origin https://github.com/MemeCrafters/meme-generator-contrib.git
+          git fetch origin
+          git checkout main || git checkout -b main origin/main
+          git pull origin main
+          cd ..
+        else
+          echo "❌ contrib 目录不存在，跳过更新"
+        fi
         
         # 更新emoji子模块
-        echo "更新 emoji 子模块..."
-        cd emoji
-        git remote set-url origin https://github.com/anyliew/meme_emoji.git
-        git fetch origin
-        git checkout main || git checkout -b main origin/main
-        git pull origin main
-        cd ..
+        if [ -d "emoji" ]; then
+          echo "更新 emoji 子模块..."
+          cd emoji
+          git remote set-url origin https://github.com/anyliew/meme_emoji.git
+          git fetch origin
+          git checkout main || git checkout -b main origin/main
+          git pull origin main
+          cd ..
+        else
+          echo "❌ emoji 目录不存在，跳过更新"
+        fi
 
     - name: Check for changes
       id: changes
