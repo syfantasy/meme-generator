@@ -30,24 +30,27 @@ jobs:
         # 更新core子模块
         echo "更新 core 子模块..."
         cd core
+        git remote set-url origin https://github.com/MemeCrafters/meme-generator.git
         git fetch origin
-        git checkout main || git checkout master
+        git checkout master || git checkout main
         git pull origin $(git branch --show-current)
         cd ..
         
         # 更新contrib子模块
         echo "更新 contrib 子模块..."
         cd contrib
+        git remote set-url origin https://github.com/MemeCrafters/meme-generator-contrib.git
         git fetch origin
-        git checkout main || git checkout master
+        git checkout master || git checkout main
         git pull origin $(git branch --show-current)
         cd ..
         
         # 更新emoji子模块
         echo "更新 emoji 子模块..."
         cd emoji
+        git remote set-url origin https://github.com/anyliew/meme_emoji.git
         git fetch origin
-        git checkout main || git checkout master
+        git checkout master || git checkout main
         git pull origin $(git branch --show-current)
         cd ..
 
