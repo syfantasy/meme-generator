@@ -18,10 +18,10 @@
 
 **工作内容：**
 - 检查三个子模块的上游更新：
-  - `core`: https://github.com/MeetWq/meme-generator.git
-  - `contrib`: https://github.com/MeetWq/meme-generator-contrib.git  
+  - `core`: https://github.com/MemeCrafters/meme-generator.git
+  - `contrib`: https://github.com/MemeCrafters/meme-generator-contrib.git
   - `emoji`: https://github.com/anyliew/meme_emoji.git
-- 如果有更新，自动提交到你的仓库
+- 如果有更新，自动提交到你的仓库 (https://github.com/syfantasy/meme-generator)
 - 触发Docker构建
 
 ### 2. Docker构建工作流 (`.github/workflows/docker-build.yml`)
@@ -103,12 +103,12 @@ schedule:
 ```ini
 [submodule "core"]
     path = core
-    url = https://github.com/MeetWq/meme-generator.git
+    url = https://github.com/MemeCrafters/meme-generator.git
     branch = main
 
 [submodule "contrib"]
     path = contrib
-    url = https://github.com/MeetWq/meme-generator-contrib.git
+    url = https://github.com/MemeCrafters/meme-generator-contrib.git
     branch = main
 
 [submodule "emoji"]
