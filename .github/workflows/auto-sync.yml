@@ -23,68 +23,21 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Initialize submodules
-      run: |
-        echo "=== 初始化子模块 ==="
-        git submodule init
-        git submodule update
-        
-        # 检查子模块状态
-        echo "子模块状态："
-        git submodule status
-        
-        # 检查目录是否存在
-        echo "检查目录："
-        ls -la
-
     - name: Update submodules to latest
       run: |
         echo "=== 更新子模块到最新版本 ==="
         
-        # 再次检查目录状态
-        echo "当前目录内容："
-        ls -la
-        echo "子模块状态："
+        # 检查当前子模块状态
+        echo "更新前子模块状态："
         git submodule status
         
-        # 更新core子模块
-        if [ -d "core" ]; then
-          echo "更新 core 子模块..."
-          cd core
-          git remote set-url origin https://github.com/MemeCrafters/meme-generator.git
-          git fetch origin
-          git checkout main || git checkout -b main origin/main
-          git pull origin main
-          cd ..
-        else
-          echo "❌ core 目录不存在，跳过更新"
-        fi
+        # 更新所有子模块到远程最新版本
+        echo "正在更新所有子模块..."
+        git submodule update --remote --merge
         
-        # 更新contrib子模块
-        if [ -d "contrib" ]; then
-          echo "更新 contrib 子模块..."
-          cd contrib
-          git remote set-url origin https://github.com/MemeCrafters/meme-generator-contrib.git
-          git fetch origin
-          git checkout main || git checkout -b main origin/main
-          git pull origin main
-          cd ..
-        else
-          echo "❌ contrib 目录不存在，跳过更新"
-        fi
-        
-        # 更新emoji子模块
-        if [ -d "emoji" ]; then
-          echo "更新 emoji 子模块..."
-          cd emoji
-          git remote set-url origin https://github.com/anyliew/meme_emoji.git
-          git fetch origin
-          git checkout main || git checkout -b main origin/main
-          git pull origin main
-          cd ..
-        else
-          echo "❌ emoji 目录不存在，跳过更新"
-        fi
+        # 检查更新后状态
+        echo "更新后子模块状态："
+        git submodule status
 
     - name: Check for changes
       id: changes
