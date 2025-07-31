@@ -76,15 +76,35 @@ jobs:
           # 删除.git目录，准备转换为子模块
           rm -rf core/.git contrib/.git emoji/.git
           
-          # 添加为子模块
-          git submodule add https://github.com/MemeCrafters/meme-generator.git core
-          git submodule add https://github.com/MemeCrafters/meme-generator-contrib.git contrib
-          git submodule add https://github.com/anyliew/meme_emoji.git emoji
+          # 创建.gitmodules文件
+          echo "Creating .gitmodules file..."
+          cat > .gitmodules << 'EOF'
+[submodule "core"]
+ path = core
+ url = https://github.com/MemeCrafters/meme-generator.git
+ branch = main
+
+[submodule "contrib"]
+ path = contrib
+ url = https://github.com/MemeCrafters/meme-generator-contrib.git
+ branch = main
+
+[submodule "emoji"]
+ path = emoji
+ url = https://github.com/anyliew/meme_emoji.git
+ branch = main
+EOF
           
-          echo "Submodules added, initializing..."
-          git submodule update --init --recursive
+          echo ".gitmodules created:"
+          cat .gitmodules
           
-          echo "Final verification:"
+          # 添加.gitmodules到git
+          git add .gitmodules
+          
+          # 添加子模块目录到git
+          git add core contrib emoji
+          
+          echo "Submodules configured, final verification:"
           ls -la
           echo ""
           echo "Submodule status:"
