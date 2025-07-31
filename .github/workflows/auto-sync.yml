@@ -80,23 +80,24 @@ jobs:
         git commit -m "$COMMIT_MSG" -m "$(cat commit_details.txt)"
         git push origin main
 
-    - name: Trigger Docker build
-      if: steps.changes.outputs.has_changes == 'true'
-      run: |
-        echo "=== 触发Docker构建 ==="
-        # 触发docker-build工作流
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-build.yml/dispatches \
-          -d '{"ref":"main"}'
+    # Docker构建触发暂时注释，方便独立测试同步功能
+    # - name: Trigger Docker build
+    #   if: steps.changes.outputs.has_changes == 'true'
+    #   run: |
+    #     echo "=== 触发Docker构建 ==="
+    #     # 触发docker-build工作流
+    #     curl -X POST \
+    #       -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+    #       -H "Accept: application/vnd.github.v3+json" \
+    #       https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-build.yml/dispatches \
+    #       -d '{"ref":"main"}'
 
     - name: Summary
       run: |
         echo "=== 同步完成 ==="
         if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
           echo "✅ 检测到更新并已同步"
-          echo "✅ 已触发Docker构建"
+          echo "ℹ️ Docker构建触发已暂时禁用"
         else
           echo "ℹ️ 没有检测到更新"
         fi
