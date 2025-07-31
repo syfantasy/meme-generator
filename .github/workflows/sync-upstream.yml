@@ -54,6 +54,29 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global init.defaultBranch main
+
+      - name: Debug environment and permissions
+        run: |
+          echo "=== Environment Debug Info ==="
+          echo "Current directory: $(pwd)"
+          echo "Git version: $(git --version)"
+          echo "Repository status:"
+          git status
+          echo ""
+          echo "Submodules status:"
+          git submodule status || echo "No submodules found or error occurred"
+          echo ""
+          echo "Available directories:"
+          ls -la
+          echo ""
+          echo "Checking target submodule directory: ${{ matrix.repo.local_path }}"
+          if [ -d "${{ matrix.repo.local_path }}" ]; then
+            echo "Directory exists, contents:"
+            ls -la ${{ matrix.repo.local_path }}
+          else
+            echo "Directory does not exist"
+          fi
 
       - name: Initialize and setup submodule for ${{ matrix.repo.name }}
         run: |
