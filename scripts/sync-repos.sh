@@ -35,6 +35,7 @@ print_error() {
 sync_submodule() {
     local submodule_path=$1
     local submodule_name=$2
+    local upstream_url=$3
     
     print_status "Syncing $submodule_name..."
     
@@ -45,40 +46,79 @@ sync_submodule() {
     
     cd "$submodule_path"
     
-    # 获取当前分支
+    # 获取当前分支，如果在detached HEAD状态则切换到main分支
     current_branch=$(git branch --show-current)
+    if [ -z "$current_branch" ]; then
+        print_warning "In detached HEAD state, switching to main branch"
+        git checkout -b main 2>/dev/null || git checkout main 2>/dev/null || git checkout master 2>/dev/null
+        current_branch=$(git branch --show-current)
+    fi
     print_status "Current branch: $current_branch"
     
-    # 获取远程更新
-    print_status "Fetching updates from origin..."
-    git fetch origin
+    # 设置上游远程仓库
+    if git remote | grep -q "^upstream$"; then
+        git remote remove upstream
+    fi
+    git remote add upstream "$upstream_url"
+    
+    # 获取远程更新（带重试机制）
+    print_status "Fetching updates from upstream..."
+    retry_count=0
+    max_retries=3
+    while [ $retry_count -lt $max_retries ]; do
+        if git fetch upstream; then
+            print_success "Successfully fetched from upstream"
+            break
+        else
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -lt $max_retries ]; then
+                print_warning "Fetch failed, retrying in 5 seconds... (attempt $retry_count/$max_retries)"
+                sleep 5
+            else
+                print_error "Failed to fetch from upstream after $max_retries attempts"
+                cd - > /dev/null
+                return 1
+            fi
+        fi
+    done
     
     # 检查是否有更新
     local_commit=$(git rev-parse HEAD)
-    remote_commit=$(git rev-parse origin/$current_branch)
+    upstream_commit=$(git rev-parse upstream/main 2>/dev/null || git rev-parse upstream/master 2>/dev/null)
     
-    if [ "$local_commit" = "$remote_commit" ]; then
+    if [ "$local_commit" = "$upstream_commit" ]; then
         print_success "$submodule_name is already up to date"
     else
         print_status "Updates found for $submodule_name"
-        print_status "Local:  $local_commit"
-        print_status "Remote: $remote_commit"
+        print_status "Local:    $local_commit"
+        print_status "Upstream: $upstream_commit"
         
-        # 尝试快进合并
-        if git merge --ff-only origin/$current_branch; then
-            print_success "Successfully updated $submodule_name"
+        # 尝试自动合并
+        upstream_branch="main"
+        if ! git rev-parse upstream/main >/dev/null 2>&1; then
+            upstream_branch="master"
+        fi
+        
+        if git merge upstream/$upstream_branch --no-edit; then
+            print_success "Successfully merged updates for $submodule_name"
         else
-            print_warning "Fast-forward merge failed for $submodule_name"
+            print_warning "Automatic merge failed for $submodule_name"
             print_warning "Manual intervention may be required"
+            git merge --abort
             
             # 询问是否强制更新
-            read -p "Do you want to reset to remote HEAD? This will lose local changes. (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                git reset --hard origin/$current_branch
-                print_success "Reset $submodule_name to remote HEAD"
+            if [ "$FORCE_UPDATE" = "true" ]; then
+                git reset --hard upstream/$upstream_branch
+                print_success "Force reset $submodule_name to upstream HEAD"
             else
-                print_warning "Skipping $submodule_name update"
+                read -p "Do you want to reset to upstream HEAD? This will lose local changes. (y/N): " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    git reset --hard upstream/$upstream_branch
+                    print_success "Reset $submodule_name to upstream HEAD"
+                else
+                    print_warning "Skipping $submodule_name update"
+                fi
             fi
         fi
     fi
@@ -97,9 +137,9 @@ main() {
     print_status "Starting repository sync..."
     
     # 同步各个子模块
-    sync_submodule "core" "meme-generator"
-    sync_submodule "contrib" "meme-generator-contrib"
-    sync_submodule "emoji" "meme_emoji"
+    sync_submodule "core" "meme-generator" "https://github.com/MemeCrafters/meme-generator.git"
+    sync_submodule "contrib" "meme-generator-contrib" "https://github.com/MemeCrafters/meme-generator-contrib.git"
+    sync_submodule "emoji" "meme_emoji" "https://github.com/anyliew/meme_emoji.git"
     
     # 更新主仓库的子模块引用
     print_status "Updating submodule references in main repository..."
