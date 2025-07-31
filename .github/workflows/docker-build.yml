@@ -1,12 +1,12 @@
 name: Build and Push Docker Image
 
 on:
-  # 自动触发已关闭，只保留手动触发
+  # 自动触发暂时注释，方便手动测试
   # push:
-  #   branches: [ master ]
+  #   branches: [ main ]
   #   tags: [ 'v*' ]
   # pull_request:
-  #   branches: [ master ]
+  #   branches: [ main ]
   workflow_dispatch:
     inputs:
       tag:
@@ -53,7 +53,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
