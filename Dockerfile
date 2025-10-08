@@ -86,7 +86,7 @@ RUN if [ -f /app/meme-generator/package.json ]; then \
 
  # Python deps: ensure uvicorn + app install (pyproject or setup)
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir 'uvicorn[standard]' fastapi
+ && python3 -m pip install --no-cache-dir uvicorn fastapi
 RUN if [ -f /app/meme-generator/requirements.txt ]; then \
       python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt; \
     fi
