@@ -1,68 +1,48 @@
-# ---- Stage 1: Clone the main repo to get dependency files ----
-FROM alpine/git:latest AS clone-stage
-WORKDIR /tmp
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git meme-generator
+# ---- Final Stage: Build upon the official pre-built image ----
+# This is the most reliable approach, avoiding all system dependency issues.
+FROM memecrafters/meme-generator:latest
 
-# ---- Stage 2: Generate requirements.txt using Poetry ----
-FROM python:3.10 AS builder
-WORKDIR /tmp
-RUN curl -sSL https://install.python-poetry.org | python -
-ENV PATH="/root/.local/bin:${PATH}"
-COPY --from=clone-stage /tmp/meme-generator/pyproject.toml ./
-COPY --from=clone-stage /tmp/meme-generator/poetry.lock* ./
-RUN poetry self add poetry-plugin-export \
-  && poetry export -f requirements.txt --output requirements.txt --without-hashes
+# Switch to root user to install build-time dependencies
+USER root
 
-# ---- Stage 3: Prepare all data and source files ----
-FROM node:18 AS data-prep-stage
-WORKDIR /app
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git .
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git ./contrib
-RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git ./meme_emoji
-RUN mkdir -p ./src/memes/ \
-    && mv ./contrib/memes/* ./src/memes/ \
-    && mv ./meme_emoji/emoji/* ./src/memes/ \
-    && rm -rf ./contrib ./meme_emoji
-RUN find ./src/memes -type f -name 'info.json' \
-    | xargs -r -I {} jq . {} \
-    | jq -s 'add' > /tmp/infos.json
-RUN cat /tmp/infos.json \
-    | jq 'to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) | add' > /tmp/keyMap.json
-
-# ---- Final App Stage ----
-FROM python:3.10
-WORKDIR /app
-ENV TZ=Asia/Shanghai LOG_LEVEL="INFO"
-
-# 安装运行时的系统依赖
+# Install git and jq, which are needed for our data preparation steps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fontconfig \
-    fonts-noto-color-emoji \
-    libgl1-mesa-glx \
-    libgl1-mesa-dri \
-    libegl1-mesa \
-    gettext \
+    git \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
-# 从 data-prep-stage 复制所有准备好的文件
-COPY --from=data-prep-stage /app/ /app/
-COPY --from=data-prep-stage /tmp/infos.json /app/data/memes/infos.json
-COPY --from=data-prep-stage /tmp/keyMap.json /app/data/memes/keyMap.json
+# The official image works in /app, so we'll use a temporary directory for cloning
+WORKDIR /tmp
 
-# 复制字体并刷新缓存
-RUN mkdir -p /usr/share/fonts/meme-fonts/ \
-    && mv /app/resources/fonts/* /usr/share/fonts/meme-fonts/ \
-    && fc-cache -fv
+# Clone all three repositories
+RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git meme-generator
+RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git meme-generator-contrib
+RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git meme_emoji
 
-# 从 builder 阶段复制 requirements.txt
-COPY --from=builder /tmp/requirements.txt /app/requirements.txt
+# Organize file structure:
+# 1. Clear the original memes that came with the official image.
+# 2. Move all memes from our cloned repos into the now-empty directory.
+# The official image is configured to load memes from `/data/memes`.
+RUN rm -rf /data/memes/* \
+    && mv /tmp/meme-generator/meme_generator/memes/* /data/memes/ \
+    && mv /tmp/meme-generator-contrib/memes/* /data/memes/ \
+    && mv /tmp/meme_emoji/emoji/* /data/memes/
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+# Generate the static infos.json and keyMap.json from the unified meme directory
+RUN find /data/memes -type f -name 'info.json' \
+    | xargs -r -I {} jq . {} \
+    | jq -s 'add' > /app/data/memes/infos.json
+RUN cat /app/data/memes/infos.json \
+    | jq 'to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) | add' > /app/data/memes/keyMap.json
 
-# 设置启动脚本权限
-RUN chmod +x /app/docker/start.sh
+# Clean up cloned repos and build dependencies
+RUN rm -rf /tmp/* \
+    && apt-get purge -y --auto-remove git jq
 
-EXPOSE 2233
-CMD ["/app/docker/start.sh"]
+# Switch back to the non-root user that the official image uses
+USER user
+
+# Set the working directory back to the app's default
+WORKDIR /app
+
+# The official image's CMD ["/app/start.sh"] will be inherited and used
