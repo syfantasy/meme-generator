@@ -44,6 +44,7 @@ import uvicorn
 
 # Register API routers from meme_generator
 load_memes("/app/meme-generator-contrib/memes")
+load_memes("/app/meme_emoji/emoji")
 register_routers()
 
 # Mount static aggregated data under /memes/static
