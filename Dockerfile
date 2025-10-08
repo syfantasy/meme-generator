@@ -13,41 +13,7 @@ RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.g
 RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git meme_emoji
 
 # 运行脚本以生成 infos.json 和 keyMap.json
-RUN node -e "
-  const fs = require('fs');
-  const path = require('path');
-
-  const memeSrcDirs = [
-    path.join('meme-generator', 'src', 'memes'),
-    path.join('meme-generator-contrib', 'memes'),
-    path.join('meme_emoji', 'emoji')
-  ];
-
-  let infos = {};
-  let keyMap = {};
-
-  memeSrcDirs.forEach(dir => {
-    if (!fs.existsSync(dir)) return;
-    fs.readdirSync(dir).forEach(memeKey => {
-      const infoPath = path.join(dir, memeKey, 'info.json');
-      if (fs.existsSync(infoPath)) {
-        try {
-          const info = JSON.parse(fs.readFileSync(infoPath, 'utf-8'));
-          infos[info.key] = info;
-          info.keywords.forEach(keyword => {
-            keyMap[keyword] = info.key;
-          });
-        } catch (e) {
-          console.error(`Error parsing ${infoPath}:`, e);
-        }
-      }
-    });
-  });
-
-  fs.writeFileSync('infos.json', JSON.stringify(infos, null, 2));
-  fs.writeFileSync('keyMap.json', JSON.stringify(keyMap, null, 2));
-  console.log('Successfully generated infos.json and keyMap.json');
-"
+RUN node -e "const fs = require('fs'); const path = require('path'); const memeSrcDirs = [path.join('meme-generator', 'src', 'memes'), path.join('meme-generator-contrib', 'memes'), path.join('meme_emoji', 'emoji')]; let infos = {}; let keyMap = {}; memeSrcDirs.forEach(dir => { if (!fs.existsSync(dir)) return; fs.readdirSync(dir).forEach(memeKey => { const infoPath = path.join(dir, memeKey, 'info.json'); if (fs.existsSync(infoPath)) { try { const info = JSON.parse(fs.readFileSync(infoPath, 'utf-8')); infos[info.key] = info; info.keywords.forEach(keyword => { keyMap[keyword] = info.key; }); } catch (e) { console.error(`Error parsing \${infoPath}:`, e); } } }); }); fs.writeFileSync('infos.json', JSON.stringify(infos, null, 2)); fs.writeFileSync('keyMap.json', JSON.stringify(keyMap, null, 2)); console.log('Successfully generated infos.json and keyMap.json');"
 
 # ---- Final Stage ----
 # 构建最终的 Python 镜像
