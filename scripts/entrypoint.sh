@@ -31,6 +31,25 @@ try_start_python() {
   if [ -f "${APP_DIR}/requirements.txt" ] || [ -f "${APP_DIR}/pyproject.toml" ] || [ -f "${APP_DIR}/app.py" ] || [ -f "${APP_DIR}/main.py" ]; then
     echo "[entrypoint] Attempting to run Python app"
     cd "${APP_DIR}"
+    # Prefer packaged FastAPI app if present
+    if [ -f "${APP_DIR}/meme_generator/app.py" ]; then
+      echo "[entrypoint] Detected meme_generator.app; priming routers then starting uvicorn"
+      exec python3 - <<'PY'
+import os
+from meme_generator.app import app, register_routers
+from starlette.staticfiles import StaticFiles
+import uvicorn
+
+# Register API routers from meme_generator
+register_routers()
+
+# Mount static aggregated data under /memes/static
+data_dir = os.environ.get("MEME_DATA_DIR", "/app/data")
+app.mount("/memes/static", StaticFiles(directory=data_dir), name="static")
+
+uvicorn.run(app, host="0.0.0.0", port=8000)
+PY
+    fi
     # Prefer FastAPI via uvicorn if detected
     if [ -f app.py ] && grep -q "FastAPI(" app.py; then
       echo "[entrypoint] Detected FastAPI in app.py; starting uvicorn app:app"
