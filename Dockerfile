@@ -24,12 +24,15 @@ RUN echo ']' >> /app/config.prod.toml
 # 设置环境变量，让 meme-generator 加载我们的配置文件
 ENV MEME_CONFIG_FILE="/app/config.prod.toml"
 
-# 安装主仓库的 Python 依赖
-# 假设主仓库的 requirements.txt 已经包含了所有必要的依赖
+# 安装编译依赖和 Python 依赖
 WORKDIR /app/meme-generator
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libjpeg-dev zlib1g-dev \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# 将工作目录切换回 /app，或者直接使用绝对路径启动
+# 将工作目录切换回 /app
 WORKDIR /app
 
 # 设置容器启动命令
