@@ -33,8 +33,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     fontconfig \
     fonts-noto-color-emoji \
-    libgl1-mesa-glx \
-    libgl1-mesa-dri \
     libegl1-mesa \
     gettext \
     && rm -rf /var/lib/apt/lists/*
