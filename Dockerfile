@@ -1,40 +1,66 @@
-# 使用官方 Python 镜像作为基础
+# ---- Builder Stage: Generate requirements.txt ----
+FROM python:3.10 AS builder
+
+WORKDIR /tmp
+
+# 安装 Poetry
+RUN curl -sSL https://install.python-poetry.org | python -
+ENV PATH="/root/.local/bin:${PATH}"
+
+# 复制主项目的依赖定义文件
+COPY meme-generator/pyproject.toml ./
+COPY meme-generator/poetry.lock* ./
+
+# 导出 requirements.txt
+RUN poetry self add poetry-plugin-export \
+  && poetry export -f requirements.txt --output requirements.txt --without-hashes
+
+# ---- Final App Stage ----
 FROM python:3.10-slim
 
-# 设置工作目录
 WORKDIR /app
 
-# 安装 git
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# 设置时区和默认的表情包加载目录
+# 我们将把所有表情包都放在 /data/memes 中
+ENV TZ=Asia/Shanghai \
+    LOAD_BUILTIN_MEMES=true \
+    MEME_DIRS="[\"/data/memes\"]" \
+    LOG_LEVEL="INFO"
 
-# 克隆所有仓库到各自独立的目录中
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git meme-generator
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git meme-generator-contrib
-RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git meme_emoji
+# 创建统一的表情包数据目录
+RUN mkdir -p /data/memes
 
-# 创建配置文件，告诉主程序去哪里加载所有表情包
-# 注意：我们使用绝对路径，因为容器内的 CWD 可能会变化
-RUN echo '[meme]' > /app/config.prod.toml
-RUN echo 'meme_dirs = [' >> /app/config.prod.toml
-RUN echo '  "/app/meme-generator/src/memes",' >> /app/config.prod.toml
-RUN echo '  "/app/meme-generator-contrib/memes",' >> /app/config.prod.toml
-RUN echo '  "/app/meme_emoji/emoji"' >> /app/config.prod.toml
-RUN echo ']' >> /app/config.prod.toml
+# 从 builder 阶段复制 requirements.txt
+COPY --from=builder /tmp/requirements.txt /app/requirements.txt
 
-# 设置环境变量，让 meme-generator 加载我们的配置文件
-ENV MEME_CONFIG_FILE="/app/config.prod.toml"
+# 复制所有仓库的代码到临时目录，以便后续整理
+COPY meme-generator/ /tmp/meme-generator/
+COPY meme-generator-contrib/ /tmp/meme-generator-contrib/
+COPY meme_emoji/ /tmp/meme_emoji/
 
-# 安装编译依赖和 Python 依赖
-WORKDIR /app/meme-generator
+# 复制主程序代码到工作目录
+COPY --from=/tmp/meme-generator/meme_generator /app/meme_generator
+
+# 复制所有表情包到统一的数据目录
+COPY --from=/tmp/meme-generator/meme_generator/memes /data/memes/
+COPY --from=/tmp/meme-generator-contrib/memes /data/memes/
+COPY --from=/tmp/meme_emoji/emoji /data/memes/
+
+# 复制字体
+COPY --from=/tmp/meme-generator/resources/fonts /usr/share/fonts/meme-fonts/
+
+# 安装系统依赖、字体，然后安装 Python 依赖
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libjpeg-dev zlib1g-dev \
-    && pip install --no-cache-dir -r requirements.txt \
-    && apt-get purge -y --auto-remove build-essential \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends fontconfig fonts-noto-color-emoji libgl1-mesa-glx libgl1-mesa-dri libegl1-mesa gettext \
+  && fc-cache -fv \
+  && pip install --no-cache-dir --upgrade -r /app/requirements.txt \
+  && apt-get purge -y --auto-remove \
+  && rm -rf /var/lib/apt/lists/*
 
-# 将工作目录切换回 /app
-WORKDIR /app
+# 复制并执行启动脚本
+COPY --from=/tmp/meme-generator/docker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-# 设置容器启动命令
-# 使用 `meme-generator` 目录中的 `app.py` 作为入口点
-CMD ["python", "-m", "meme_generator"]
+EXPOSE 2233
+
+CMD ["/app/start.sh"]
