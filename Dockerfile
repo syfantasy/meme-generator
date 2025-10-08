@@ -20,7 +20,8 @@ RUN poetry self add poetry-plugin-export \
   && poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 # ---- Final App Stage ----
-FROM python:3.10-slim
+# 使用完整的 python:3.10 镜像以确保所有系统依赖都可用
+FROM python:3.10
 WORKDIR /app
 
 # 设置时区和日志级别
@@ -28,11 +29,14 @@ ENV TZ=Asia/Shanghai \
     LOG_LEVEL="INFO"
 
 # 安装构建和运行所需的系统依赖
+# 我们恢复官方 Dockerfile 中的所有依赖，因为它们在完整镜像中应该是可用的
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
     fontconfig \
     fonts-noto-color-emoji \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
     libegl1-mesa \
     gettext \
     && rm -rf /var/lib/apt/lists/*
