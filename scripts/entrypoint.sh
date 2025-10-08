@@ -34,7 +34,7 @@ try_start_python() {
     # Prefer packaged FastAPI app if present
     if [ -f "${APP_DIR}/meme_generator/app.py" ]; then
       echo "[entrypoint] Detected meme_generator.app; priming routers then starting uvicorn"
-      exec python3 - <<'PY'
+      exec python - <<'PY'
 import os
 from meme_generator.app import app, register_routers
 from meme_generator import load_memes
@@ -114,12 +114,12 @@ PY
     fi
     # Generic python entry
     if [ -f app.py ]; then
-      echo "[entrypoint] Starting 'python3 app.py'"
-      exec python3 app.py
+      echo "[entrypoint] Starting 'python app.py'"
+      exec python app.py
     fi
     if [ -f main.py ]; then
-      echo "[entrypoint] Starting 'python3 main.py'"
-      exec python3 main.py
+      echo "[entrypoint] Starting 'python main.py'"
+      exec python main.py
     fi
   fi
   return 1
@@ -136,7 +136,7 @@ fallback_static() {
   fi
   echo "[entrypoint] Visit http://localhost:8000${STATIC_PREFIX}/infos.json"
   cd "${WEBROOT}"
-  exec python3 -m http.server 8000
+  exec python -m http.server 8000
 }
 
 # Allow explicit override
