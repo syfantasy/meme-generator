@@ -37,14 +37,67 @@ try_start_python() {
       exec python3 - <<'PY'
 import os
 from meme_generator.app import app, register_routers
+from meme_generator import load_memes
 from starlette.staticfiles import StaticFiles
+from fastapi import HTTPException
 import uvicorn
 
 # Register API routers from meme_generator
+load_memes("/app/meme-generator-contrib/memes")
 register_routers()
 
 # Mount static aggregated data under /memes/static
 data_dir = os.environ.get("MEME_DATA_DIR", "/app/data")
+
+# Dynamic infos.json and keyMap.json built from loaded memes
+from meme_generator.manager import get_memes
+from meme_generator.app import MemeInfoResponse, MemeParamsResponse
+
+def build_infos_and_keymap():
+    infos = {}
+    keymap = {}
+    for meme in sorted(get_memes(), key=lambda m: m.key):
+        args_type_response = None
+        if meme.params_type.args_type:
+            args_model = meme.params_type.args_type.args_model
+            args_type_response = {
+                "args_model": args_model.model_json_schema() if hasattr(args_model, "model_json_schema") else {},
+                "args_examples": [
+                    getattr(x, "model_dump", lambda: x)() if hasattr(x, "model_dump") else x
+                    for x in meme.params_type.args_type.args_examples
+                ],
+                "parser_options": meme.params_type.args_type.parser_options,
+            }
+        infos[meme.key] = {
+            "key": meme.key,
+            "params_type": {
+                "min_images": meme.params_type.min_images,
+                "max_images": meme.params_type.max_images,
+                "min_texts": meme.params_type.min_texts,
+                "max_texts": meme.params_type.max_texts,
+                "default_texts": meme.params_type.default_texts,
+                "args_type": args_type_response,
+            },
+            "keywords": meme.keywords,
+            "shortcuts": meme.shortcuts,
+            "tags": list(meme.tags),
+            "date_created": meme.date_created,
+            "date_modified": meme.date_modified,
+        }
+        for kw in meme.keywords:
+            keymap[kw] = meme.key
+    return infos, keymap
+
+@app.get("/memes/static/infos.json")
+def infos_json():
+    infos, _ = build_infos_and_keymap()
+    return infos
+
+@app.get("/memes/static/keyMap.json")
+def keymap_json():
+    _, keymap = build_infos_and_keymap()
+    return keymap
+
 app.mount("/memes/static", StaticFiles(directory=data_dir), name="static")
 
 uvicorn.run(app, host="0.0.0.0", port=8000)
