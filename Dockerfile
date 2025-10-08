@@ -47,6 +47,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        python3 \
        python3-pip \
+       python3-toml \
        tini \
        # Fonts and font config
        fontconfig \
@@ -85,17 +86,16 @@ RUN if [ -f /app/meme-generator/package.json ]; then \
 
  # Python deps: ensure uvicorn + app install (pyproject or setup)
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir 'uvicorn[standard]' fastapi || true
+ && python3 -m pip install --no-cache-dir 'uvicorn[standard]' fastapi
 RUN if [ -f /app/meme-generator/requirements.txt ]; then \
-      python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt || true; \
+      python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt; \
     fi
 RUN if [ -f /app/meme_emoji/requirements.txt ]; then \
-      python3 -m pip install --no-cache-dir -r /app/meme_emoji/requirements.txt || true; \
+      python3 -m pip install --no-cache-dir -r /app/meme_emoji/requirements.txt; \
     fi
 RUN if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
-      python3 -m pip install --no-cache-dir /app/meme-generator || true; \
+      python3 -m pip install --no-cache-dir /app/meme-generator; \
     fi
-RUN python3 -m pip install --no-cache-dir toml || true
 
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
