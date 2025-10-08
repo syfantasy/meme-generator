@@ -88,10 +88,14 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip \
  && python3 -m pip install --no-cache-dir 'uvicorn[standard]' fastapi || true
 RUN if [ -f /app/meme-generator/requirements.txt ]; then \
       python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt || true; \
-    fi \
-    && if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
+    fi
+RUN if [ -f /app/meme_emoji/requirements.txt ]; then \
+      python3 -m pip install --no-cache-dir -r /app/meme_emoji/requirements.txt || true; \
+    fi
+RUN if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
       python3 -m pip install --no-cache-dir /app/meme-generator || true; \
     fi
+RUN python3 -m pip install --no-cache-dir toml || true
 
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
