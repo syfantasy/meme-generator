@@ -40,9 +40,55 @@ from meme_generator.app import app, register_routers
 from meme_generator import load_memes
 from starlette.staticfiles import StaticFiles
 from fastapi import HTTPException
+from pydantic import BaseModel
+from typing import Literal, Optional, List
+import filetype
+from meme_generator.manager import get_meme, get_memes
+from meme_generator.exception import NoSuchMeme
+from meme_generator.utils import MemeProperties, render_meme_list
 import uvicorn
 
-# Register API routers from meme_generator
+# Prepend an override for /memes/render_list that computes the list at request time
+class MemeKeyWithProperties(BaseModel):
+    meme_key: str
+    disabled: bool = False
+    labels: List[Literal["new", "hot"]] = []
+
+class RenderMemeListRequest(BaseModel):
+    meme_list: Optional[List[MemeKeyWithProperties]] = None
+    text_template: str = "{keywords}"
+    add_category_icon: bool = True
+
+@app.post("/memes/render_list")
+def render_list(params: RenderMemeListRequest = RenderMemeListRequest()):
+    try:
+        if params.meme_list:
+            meme_list = [
+                (
+                    get_meme(p.meme_key),
+                    MemeProperties(disabled=p.disabled, labels=p.labels),
+                )
+                for p in params.meme_list
+            ]
+        else:
+            # Build from current loaded memes to include contrib + emoji
+            meme_list = [
+                (m, MemeProperties()) for m in sorted(get_memes(), key=lambda m: m.key)
+            ]
+    except NoSuchMeme as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    result = render_meme_list(
+        meme_list,
+        text_template=params.text_template,
+        add_category_icon=params.add_category_icon,
+    )
+    content = result.getvalue()
+    media_type = str(filetype.guess_mime(content)) or "text/plain"
+    from fastapi import Response
+    return Response(content=content, media_type=media_type)
+
+# Register API routers from meme_generator (after our override so it remains first)
 load_memes("/app/meme-generator-contrib/memes")
 load_memes("/app/meme_emoji/emoji")
 register_routers()
