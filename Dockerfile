@@ -47,6 +47,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        python3 \
        python3-pip \
+       python3-venv \
        python3-toml \
        tini \
        # Fonts and font config
@@ -75,6 +76,9 @@ WORKDIR /app
 
 # App source and aggregated data
 COPY --from=builder /opt/src/meme-generator /app/meme-generator
+COPY --from=builder /opt/src/meme-generator-contrib /app/meme-generator-contrib
+# Optional: keep raw repo for reference or future use
+COPY --from=builder /opt/src/meme_emoji /app/meme_emoji
 COPY --from=builder /opt/bundle /app/data
 
 # Try to install Node dependencies if present
@@ -84,17 +88,22 @@ RUN if [ -f /app/meme-generator/package.json ]; then \
       && (npm run build || true); \
     fi
 
- # Python deps: ensure uvicorn + app install (pyproject or setup)
-RUN python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir uvicorn fastapi
+ # Python: create venv to avoid PEP 668 externally-managed error
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv "$VIRTUAL_ENV"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Python deps: ensure uvicorn + app install (pyproject or setup)
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir uvicorn fastapi toml
 RUN if [ -f /app/meme-generator/requirements.txt ]; then \
-      python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt; \
+      pip install --no-cache-dir -r /app/meme-generator/requirements.txt; \
     fi
 RUN if [ -f /app/meme_emoji/requirements.txt ]; then \
-      python3 -m pip install --no-cache-dir -r /app/meme_emoji/requirements.txt; \
+      pip install --no-cache-dir -r /app/meme_emoji/requirements.txt; \
     fi
 RUN if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
-      python3 -m pip install --no-cache-dir /app/meme-generator; \
+      pip install --no-cache-dir /app/meme-generator; \
     fi
 
 COPY scripts/entrypoint.sh /entrypoint.sh
