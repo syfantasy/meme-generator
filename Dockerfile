@@ -19,10 +19,12 @@ WORKDIR /app
 ENV TZ=Asia/Shanghai LOG_LEVEL="INFO"
 
 # 安装最核心、最不可能失败的系统依赖
+# 【修正】重新添加 libegl1-mesa 以解决 skia 的 ImportError
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
     fontconfig \
+    libegl1-mesa \
     && rm -rf /var/lib/apt/lists/*
 
 # 克隆所有仓库
@@ -37,8 +39,6 @@ RUN mkdir -p ./src/memes/ \
     && rm -rf ./contrib ./meme_emoji
 
 # 生成静态 infos.json 和 keyMap.json
-# 使用 tee 将合并后的 infos.json 保存，并同时通过管道传递给下一个 jq 命令
-# 在最后的 add 之前使用 `// []` 来处理空输入，防止 jq 报错
 RUN find ./src/memes -type f -name 'info.json' \
     | xargs -r -I {} jq . {} \
     | jq -s 'add // {}' \
@@ -50,11 +50,12 @@ RUN mkdir -p /app/data/memes \
     && mv /tmp/infos.json /app/data/memes/infos.json \
     && mv /tmp/keyMap.json /app/data/memes/keyMap.json
 
-# 移动字体和启动脚本，并设置权限
+# 移动字体、启动脚本和配置文件模板，并设置权限
 RUN mkdir -p /usr/share/fonts/meme-fonts/ \
     && mv ./resources/fonts/* /usr/share/fonts/meme-fonts/ \
     && fc-cache -fv \
     && mv ./docker/start.sh /app/start.sh \
+    && mv ./docker/config.toml.template /app/config.toml.template \
     && chmod +x /app/start.sh
 
 # 从 builder 阶段复制 requirements.txt
