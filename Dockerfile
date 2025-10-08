@@ -1,48 +1,65 @@
-# ---- Final Stage: Build upon the official pre-built image ----
-# This is the most reliable approach, avoiding all system dependency issues.
-FROM memecrafters/meme-generator:latest
+# ---- Stage 1: Clone the main repo to get dependency files ----
+FROM alpine/git:latest AS clone-stage
+WORKDIR /tmp
+RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git meme-generator
 
-# Switch to root user to install build-time dependencies
-USER root
+# ---- Stage 2: Generate requirements.txt using Poetry ----
+FROM python:3.10 AS builder
+WORKDIR /tmp
+RUN curl -sSL https://install.python-poetry.org | python -
+ENV PATH="/root/.local/bin:${PATH}"
+COPY --from=clone-stage /tmp/meme-generator/pyproject.toml ./
+COPY --from=clone-stage /tmp/meme-generator/poetry.lock* ./
+RUN poetry self add poetry-plugin-export \
+  && poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-# Install git and jq, which are needed for our data preparation steps
+# ---- Final App Stage ----
+FROM python:3.10
+WORKDIR /app
+ENV TZ=Asia/Shanghai LOG_LEVEL="INFO"
+
+# 安装最核心、最不可能失败的系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
-# The official image works in /app, so we'll use a temporary directory for cloning
-WORKDIR /tmp
+# 克隆所有仓库
+RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git .
+RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git ./contrib
+RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git ./meme_emoji
 
-# Clone all three repositories
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git meme-generator
-RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git meme-generator-contrib
-RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git meme_emoji
+# 组织文件结构：将所有扩展表情包移动到主程序的 memes 目录中
+RUN mkdir -p ./src/memes/ \
+    && mv ./contrib/memes/* ./src/memes/ \
+    && mv ./meme_emoji/emoji/* ./src/memes/ \
+    && rm -rf ./contrib ./meme_emoji
 
-# Organize file structure:
-# 1. Clear the original memes that came with the official image.
-# 2. Move all memes from our cloned repos into the now-empty directory.
-# The official image is configured to load memes from `/data/memes`.
-RUN rm -rf /data/memes/* \
-    && mv /tmp/meme-generator/meme_generator/memes/* /data/memes/ \
-    && mv /tmp/meme-generator-contrib/memes/* /data/memes/ \
-    && mv /tmp/meme_emoji/emoji/* /data/memes/
-
-# Generate the static infos.json and keyMap.json from the unified meme directory
-RUN find /data/memes -type f -name 'info.json' \
+# 生成静态 infos.json 和 keyMap.json
+RUN find ./src/memes -type f -name 'info.json' \
     | xargs -r -I {} jq . {} \
-    | jq -s 'add' > /app/data/memes/infos.json
-RUN cat /app/data/memes/infos.json \
-    | jq 'to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) | add' > /app/data/memes/keyMap.json
+    | jq -s 'add' > /tmp/infos.json
+RUN cat /tmp/infos.json \
+    | jq 'to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) | add' > /tmp/keyMap.json
 
-# Clean up cloned repos and build dependencies
-RUN rm -rf /tmp/* \
-    && apt-get purge -y --auto-remove git jq
+# 将生成的静态文件移动到 data 目录
+RUN mkdir -p /app/data/memes \
+    && mv /tmp/infos.json /app/data/memes/infos.json \
+    && mv /tmp/keyMap.json /app/data/memes/keyMap.json
 
-# Switch back to the non-root user that the official image uses
-USER user
+# 移动字体和启动脚本，并设置权限
+RUN mkdir -p /usr/share/fonts/meme-fonts/ \
+    && mv ./resources/fonts/* /usr/share/fonts/meme-fonts/ \
+    && fc-cache -fv \
+    && mv ./docker/start.sh /app/start.sh \
+    && chmod +x /app/start.sh
 
-# Set the working directory back to the app's default
-WORKDIR /app
+# 从 builder 阶段复制 requirements.txt
+COPY --from=builder /tmp/requirements.txt /app/requirements.txt
 
-# The official image's CMD ["/app/start.sh"] will be inherited and used
+# 安装 Python 依赖
+RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+
+EXPOSE 2233
+CMD ["/app/start.sh"]
