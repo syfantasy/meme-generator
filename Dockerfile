@@ -48,6 +48,26 @@ RUN apt-get update \
        python3 \
        python3-pip \
        tini \
+       # Fonts and font config
+       fontconfig \
+       libfontconfig1 \
+       libfreetype6 \
+       fonts-noto \
+       fonts-noto-cjk \
+       fonts-noto-color-emoji \
+       # Common image libs for Pillow
+       libjpeg62-turbo \
+       libpng16-16 \
+       libtiff6 \
+       libwebp7 \
+       # GL/X11 runtime for skia-python
+       libgl1 \
+       libglib2.0-0 \
+       libsm6 \
+       libxext6 \
+       libxrender1 \
+       libx11-6 \
+    && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -63,15 +83,20 @@ RUN if [ -f /app/meme-generator/package.json ]; then \
       && (npm run build || true); \
     fi
 
-# Try to install Python dependencies if present (best-effort)
+ # Python deps: ensure uvicorn + app install (pyproject or setup)
+RUN python3 -m pip install --no-cache-dir --upgrade pip \
+ && python3 -m pip install --no-cache-dir 'uvicorn[standard]' fastapi || true
 RUN if [ -f /app/meme-generator/requirements.txt ]; then \
       python3 -m pip install --no-cache-dir -r /app/meme-generator/requirements.txt || true; \
+    fi \
+    && if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
+      python3 -m pip install --no-cache-dir /app/meme-generator || true; \
     fi
 
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENV MEME_DATA_DIR=/app/data
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 EXPOSE 3000 5173 8000
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
-
