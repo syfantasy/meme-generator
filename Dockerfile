@@ -30,18 +30,20 @@ RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator.git .
 RUN git clone --depth 1 https://github.com/MemeCrafters/meme-generator-contrib.git ./contrib
 RUN git clone --depth 1 https://github.com/anyliew/meme_emoji.git ./meme_emoji
 
-# 组织文件结构：将所有扩展表情包移动到主程序的 memes 目录中
+# 组织文件结构
 RUN mkdir -p ./src/memes/ \
     && mv ./contrib/memes/* ./src/memes/ \
     && mv ./meme_emoji/emoji/* ./src/memes/ \
     && rm -rf ./contrib ./meme_emoji
 
 # 生成静态 infos.json 和 keyMap.json
+# 使用 tee 将合并后的 infos.json 保存，并同时通过管道传递给下一个 jq 命令
+# 在最后的 add 之前使用 `// []` 来处理空输入，防止 jq 报错
 RUN find ./src/memes -type f -name 'info.json' \
     | xargs -r -I {} jq . {} \
-    | jq -s 'add' > /tmp/infos.json
-RUN cat /tmp/infos.json \
-    | jq 'to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) | add' > /tmp/keyMap.json
+    | jq -s 'add // {}' \
+    | tee /tmp/infos.json \
+    | jq '( to_entries | map(select(.value.keywords != null and (.value.keywords | length) > 0)) | map({(.value.keywords[]): .key}) ) // [] | add' > /tmp/keyMap.json
 
 # 将生成的静态文件移动到 data 目录
 RUN mkdir -p /app/data/memes \
