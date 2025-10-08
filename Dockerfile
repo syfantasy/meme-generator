@@ -63,7 +63,11 @@ RUN apt-get update \
        libtiff6 \
        libwebp7 \
        # GL/X11 runtime for skia-python
+       libegl1 \
+       libopengl0 \
+       libglx0 \
        libgl1 \
+       libgl1-mesa-dri \
        libglib2.0-0 \
        libsm6 \
        libxext6 \
