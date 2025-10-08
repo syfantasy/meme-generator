@@ -50,8 +50,7 @@ RUN mkdir -p ./src/memes/ \
     && mv ./meme_emoji/emoji/* ./src/memes/ \
     && rm -rf ./contrib ./meme_emoji
 
-# 【重新添加】生成静态 infos.json 和 keyMap.json
-# 这将在所有表情包都就位后运行
+# 生成静态 infos.json 和 keyMap.json
 RUN find ./src/memes -type f -name 'info.json' \
     | xargs -r -I {} jq . {} \
     | jq -s 'add' \
@@ -63,20 +62,18 @@ RUN mkdir -p /app/data/memes \
     && mv /tmp/infos.json /app/data/memes/infos.json \
     && mv /tmp/keyMap.json /app/data/memes/keyMap.json
 
-# 复制字体
+# 移动字体和启动脚本，并设置权限
 RUN mkdir -p /usr/share/fonts/meme-fonts/ \
     && mv ./resources/fonts/* /usr/share/fonts/meme-fonts/ \
-    && fc-cache -fv
+    && fc-cache -fv \
+    && mv ./docker/start.sh /app/start.sh \
+    && chmod +x /app/start.sh
 
 # 从 builder 阶段复制 requirements.txt
 COPY --from=builder /tmp/requirements.txt /app/requirements.txt
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
-
-# 复制并执行启动脚本
-COPY ./docker/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
 
 EXPOSE 2233
 
