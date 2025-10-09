@@ -43,6 +43,9 @@ try_start_python() {
       if [ -n "${OPENAI_API_KEY:-}" ]; then PROV="openai"; fi
       if [ -n "${BAIDU_TRANS_APPID:-}" ] && [ -n "${BAIDU_TRANS_APIKEY:-}" ]; then PROV="${PROV:-baidu}"; fi
     fi
+    OPENAI_KEY_STATE="missing"
+    if [ -n "${OPENAI_API_KEY:-}" ]; then OPENAI_KEY_STATE="present"; fi
+    echo "[entrypoint] Translator env: provider=${PROV:-auto} OPENAI_BASE_URL=${OPENAI_BASE_URL:-<empty>} OPENAI_MODEL=${OPENAI_MODEL:-<empty>} OPENAI_API_KEY=${OPENAI_KEY_STATE}"
     echo "[meme]" >> "$CONFIG_FILE.tmp"
     echo "load_builtin_memes = false" >> "$CONFIG_FILE.tmp"
     echo "meme_dirs = []" >> "$CONFIG_FILE.tmp"
@@ -60,6 +63,7 @@ try_start_python() {
     echo "[log]" >> "$CONFIG_FILE.tmp"
     echo "log_level = \"INFO\"" >> "$CONFIG_FILE.tmp"
     mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    echo "[entrypoint] Wrote config to ${CONFIG_FILE}"
     cd "${APP_DIR}"
     # Prefer packaged FastAPI app if present
     if [ -f "${APP_DIR}/meme_generator/app.py" ]; then
@@ -85,6 +89,17 @@ from meme_generator.exception import NoSuchMeme, MemeFeedback
 from meme_generator.utils import MemeProperties, render_meme_list
 import uvicorn
 
+print(f"[bootstrap] XDG_CONFIG_HOME={os.environ.get('XDG_CONFIG_HOME')} CONFIG_DIR=/app/config/meme_generator", flush=True)
+tc = getattr(meme_config, 'translate', None)
+if tc:
+    print(
+        f"[bootstrap] meme_config.translate provider={getattr(tc,'provider',None)} base_url={getattr(tc,'openai_base_url',None)} "
+        f"model={getattr(tc,'openai_model',None)} api_key_present={bool(getattr(tc,'openai_api_key',None))}",
+        flush=True,
+    )
+else:
+    print("[bootstrap] meme_config.translate missing", flush=True)
+
 _orig_translate = _utils.translate
 
 def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -> str:
@@ -98,6 +113,7 @@ def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -
 
     use_openai = provider == "openai" or (not provider and bool(api_key))
     if not use_openai:
+        print(f"[translate] fallback to original provider (provider={provider})", flush=True)
         return _orig_translate(text, lang_from, lang_to)
 
     if not base_url or not api_key or not model:
@@ -137,19 +153,27 @@ def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -
         ],
     }
     try:
+        print(
+            f"[translate/openai] request target={target_lang} model={model} base_url={base_url} text_len={len(text)}",
+            flush=True,
+        )
         r = httpx.post(url, headers=headers, json=payload, timeout=60)
+        print(f"[translate/openai] response status={r.status_code}", flush=True)
         r.raise_for_status()
         data = r.json()
         choices = data.get("choices") or []
         content = choices[0].get("message", {}).get("content") if choices else None
         if not content:
             raise MemeFeedback("OpenAI 翻译失败：空结果")
-        return str(content).strip()
+        result = str(content).strip()
+        print(f"[translate/openai] success result_len={len(result)}", flush=True)
+        return result
     except Exception as e:
         raise MemeFeedback(f"OpenAI 翻译失败: {e}")
 
 # Patch in place so memes using translate() pick it up (e.g., dianzhongdian)
 _utils.translate = _openai_translate
+print("[bootstrap] translate() monkey-patched for OpenAI provider", flush=True)
 
 # Manually load builtin memes AFTER patching translate
 pkg_dir = Path(importlib.import_module('meme_generator').__file__).parent
