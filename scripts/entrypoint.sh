@@ -148,19 +148,25 @@ def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -
 
     url = base_url.rstrip("/") + "/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    import re
+    # Stronger instructions + JP-specific guidance to avoid returning Chinese
+    extra_rules = ""
+    if target_lang.lower().startswith("japan"):
+        extra_rules = (
+            " Use natural Japanese and include kana (hiragana/katakana) where appropriate; "
+            "do not output Chinese text; do not return the input unchanged."
+        )
+    system_prompt = (
+        "You are a professional translation engine."
+        f" Translate the user text to {target_lang}."
+        " Only output the translated text without any extra words, quotes, or explanations."
+        " Preserve numbers, emoji, and links." + extra_rules
+    )
     payload = {
         "model": model,
         "temperature": 0,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a professional translation engine. "
-                    f"Translate the user text to {target_lang}. "
-                    "Only output the translated text without any extra words, quotes, or explanations. "
-                    "Preserve numbers, emoji, and links."
-                ),
-            },
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": text},
         ],
     }
@@ -178,6 +184,45 @@ def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -
         if not content:
             raise MemeFeedback("OpenAI 翻译失败：空结果")
         result = str(content).strip()
+
+        def has_kana(s: str) -> bool:
+            return bool(re.search(r"[\u3040-\u30FF]", s))
+        def has_cjk(s: str) -> bool:
+            return bool(re.search(r"[\u4E00-\u9FFF]", s))
+
+        # Retry condition: JP without kana OR result identical to input for non-Chinese targets
+        need_retry = False
+        if target_lang.lower().startswith("japan") and not has_kana(result):
+            need_retry = True
+        if target_lang.lower() not in ("chinese",) and result.strip() == text.strip():
+            need_retry = True
+        if target_lang.lower() not in ("chinese",) and has_cjk(result) and not target_lang.lower().startswith("japan"):
+            need_retry = True
+
+        if need_retry:
+            print("[translate/openai] retrying with stricter rule", flush=True)
+            strict_prompt = (
+                system_prompt
+                + " The output MUST be purely in the target language; do not copy input; no quotes."
+            )
+            payload_retry = {
+                "model": model,
+                "temperature": 0,
+                "messages": [
+                    {"role": "system", "content": strict_prompt},
+                    {"role": "user", "content": text},
+                ],
+            }
+            r2 = httpx.post(url, headers=headers, json=payload_retry, timeout=60)
+            print(f"[translate/openai] retry response status={r2.status_code}", flush=True)
+            r2.raise_for_status()
+            data2 = r2.json()
+            choices2 = data2.get("choices") or []
+            result2 = (choices2[0].get("message", {}).get("content") or "").strip() if choices2 else ""
+            if result2:
+                print(f"[translate/openai] retry success result_len={len(result2)}", flush=True)
+                return result2
+
         print(f"[translate/openai] success result_len={len(result)}", flush=True)
         return result
     except Exception as e:
@@ -238,6 +283,7 @@ def render_list(params: RenderMemeListRequest = RenderMemeListRequest()):
 # Register API routers from meme_generator (after our override so it remains first)
 load_memes("/app/meme-generator-contrib/memes")
 load_memes("/app/meme_emoji/emoji")
+load_memes("/app/meme_emoji_nsfw/emoji")
 register_routers()
 
 # Mount static aggregated data under /memes/static
