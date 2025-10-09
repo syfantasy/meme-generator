@@ -2,8 +2,8 @@
 set -euo pipefail
 
 APP_DIR="/app/meme-generator"
-# Ensure meme_generator reads config from a predictable location
-export XDG_CONFIG_HOME="/app/config"
+# Ensure meme_generator reads config from a predictable location (writable)
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/tmp/config}"
 CONFIG_DIR="${XDG_CONFIG_HOME}/meme_generator"
 CONFIG_FILE="${CONFIG_DIR}/config.toml"
 DATA_DIR="${MEME_DATA_DIR:-/app/data}"
@@ -59,7 +59,7 @@ try_start_python() {
     if [ -n "${BAIDU_TRANS_APIKEY:-}" ]; then echo "baidu_trans_apikey = \"${BAIDU_TRANS_APIKEY}\"" >> "$CONFIG_FILE.tmp"; fi
     echo "[server]" >> "$CONFIG_FILE.tmp"
     echo "host = \"0.0.0.0\"" >> "$CONFIG_FILE.tmp"
-    echo "port = 8000" >> "$CONFIG_FILE.tmp"
+    echo "port = ${PORT:-8000}" >> "$CONFIG_FILE.tmp"
     echo "[log]" >> "$CONFIG_FILE.tmp"
     echo "log_level = \"INFO\"" >> "$CONFIG_FILE.tmp"
     mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
@@ -89,7 +89,9 @@ from meme_generator.exception import NoSuchMeme, MemeFeedback
 from meme_generator.utils import MemeProperties, render_meme_list
 import uvicorn
 
-print(f"[bootstrap] XDG_CONFIG_HOME={os.environ.get('XDG_CONFIG_HOME')} CONFIG_DIR=/app/config/meme_generator", flush=True)
+cfg_home = os.environ.get('XDG_CONFIG_HOME')
+cfg_dir = (cfg_home + '/meme_generator') if cfg_home else '<unset>'
+print(f"[bootstrap] XDG_CONFIG_HOME={cfg_home} CONFIG_DIR={cfg_dir}", flush=True)
 tc = getattr(meme_config, 'translate', None)
 env_provider = os.getenv('TRANSLATOR_PROVIDER', '').strip().lower()
 env_base_url = os.getenv('OPENAI_BASE_URL', '').strip()
@@ -292,7 +294,9 @@ def keymap_json():
 
 app.mount("/memes/static", StaticFiles(directory=data_dir), name="static")
 
-uvicorn.run(app, host="0.0.0.0", port=8000)
+port = int(os.environ.get("PORT", "8000"))
+print(f"[bootstrap] Starting uvicorn on 0.0.0.0:{port}", flush=True)
+uvicorn.run(app, host="0.0.0.0", port=port)
 PY
     fi
     # Prefer FastAPI via uvicorn if detected
