@@ -91,25 +91,35 @@ import uvicorn
 
 print(f"[bootstrap] XDG_CONFIG_HOME={os.environ.get('XDG_CONFIG_HOME')} CONFIG_DIR=/app/config/meme_generator", flush=True)
 tc = getattr(meme_config, 'translate', None)
+env_provider = os.getenv('TRANSLATOR_PROVIDER', '').strip().lower()
+env_base_url = os.getenv('OPENAI_BASE_URL', '').strip()
+env_api_key = os.getenv('OPENAI_API_KEY', '').strip()
+env_model = os.getenv('OPENAI_MODEL', '').strip()
 if tc:
     print(
-        f"[bootstrap] meme_config.translate provider={getattr(tc,'provider',None)} base_url={getattr(tc,'openai_base_url',None)} "
-        f"model={getattr(tc,'openai_model',None)} api_key_present={bool(getattr(tc,'openai_api_key',None))}",
+        (
+            f"[bootstrap] meme_config.translate provider={getattr(tc,'provider',None)} base_url={getattr(tc,'openai_base_url',None)} "
+            f"model={getattr(tc,'openai_model',None)} api_key_present={bool(getattr(tc,'openai_api_key',None))}\n"
+            f"[bootstrap] env override provider={env_provider or '<empty>'} base_url={env_base_url or '<empty>'} "
+            f"model={env_model or '<empty>'} api_key_present={bool(env_api_key)}"
+        ),
         flush=True,
     )
 else:
-    print("[bootstrap] meme_config.translate missing", flush=True)
+    print(
+        f"[bootstrap] meme_config.translate missing; env provider={env_provider or '<empty>'} base_url={env_base_url or '<empty>'} model={env_model or '<empty>'} api_key_present={bool(env_api_key)}",
+        flush=True,
+    )
 
 _orig_translate = _utils.translate
 
 def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -> str:
     tc = getattr(meme_config, "translate", None)
-    if not tc:
-        return _orig_translate(text, lang_from, lang_to)
-    provider = getattr(tc, "provider", "").lower()
-    base_url = getattr(tc, "openai_base_url", "").strip()
-    api_key = getattr(tc, "openai_api_key", "").strip()
-    model = getattr(tc, "openai_model", "").strip()
+    # Prefer env, then config; support older meme-generator without openai fields
+    provider = (os.getenv("TRANSLATOR_PROVIDER", "") or getattr(tc, "provider", "")).strip().lower()
+    base_url = (os.getenv("OPENAI_BASE_URL", "") or getattr(tc, "openai_base_url", "")).strip()
+    api_key = (os.getenv("OPENAI_API_KEY", "") or getattr(tc, "openai_api_key", "")).strip()
+    model = (os.getenv("OPENAI_MODEL", "") or getattr(tc, "openai_model", "")).strip()
 
     use_openai = provider == "openai" or (not provider and bool(api_key))
     if not use_openai:
