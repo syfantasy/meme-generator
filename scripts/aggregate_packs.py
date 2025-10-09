@@ -96,9 +96,21 @@ def group_by_pack(root: Path, files: List[Path]) -> Dict[str, List[Path]]:
     groups: Dict[str, List[Path]] = {}
     for f in files:
         rel = f.relative_to(root)
-        # Heuristic: top-level directory under repo is the pack key.
         parts = rel.parts
-        pack_key = parts[0] if len(parts) > 1 else rel.stem
+        pack_key = rel.stem
+
+        # Better heuristics for common layouts:
+        # - emoji/<pack>/images/*.png  => pack
+        # - memes/<pack>/images/*.png  => pack
+        # - meme_generator/memes/<pack>/... => pack
+        if len(parts) >= 3 and parts[0] in {"emoji", "memes"}:
+            pack_key = parts[1]
+        elif len(parts) >= 4 and parts[0] == "meme_generator" and parts[1] == "memes":
+            pack_key = parts[2]
+        elif len(parts) >= 2:
+            # fallback: use first-level directory as pack
+            pack_key = parts[0]
+
         groups.setdefault(pack_key, []).append(f)
     return groups
 
@@ -222,4 +234,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
