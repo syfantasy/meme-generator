@@ -2,6 +2,10 @@
 set -euo pipefail
 
 APP_DIR="/app/meme-generator"
+# Ensure meme_generator reads config from a predictable location
+export XDG_CONFIG_HOME="/app/config"
+CONFIG_DIR="${XDG_CONFIG_HOME}/meme_generator"
+CONFIG_FILE="${CONFIG_DIR}/config.toml"
 DATA_DIR="${MEME_DATA_DIR:-/app/data}"
 WEBROOT="/app/webroot"
 STATIC_PREFIX="/memes/static"
@@ -30,6 +34,30 @@ try_start_node() {
 try_start_python() {
   if [ -f "${APP_DIR}/requirements.txt" ] || [ -f "${APP_DIR}/pyproject.toml" ] || [ -f "${APP_DIR}/app.py" ] || [ -f "${APP_DIR}/main.py" ]; then
     echo "[entrypoint] Attempting to run Python app"
+
+    # Build a minimal config.toml for translator if env provided
+    mkdir -p "$CONFIG_DIR"
+    : > "$CONFIG_FILE.tmp"
+    PROV="${TRANSLATOR_PROVIDER:-}"
+    if [ -z "$PROV" ]; then
+      if [ -n "${OPENAI_API_KEY:-}" ]; then PROV="openai"; fi
+      if [ -n "${BAIDU_TRANS_APPID:-}" ] && [ -n "${BAIDU_TRANS_APIKEY:-}" ]; then PROV="${PROV:-baidu}"; fi
+    fi
+    if [ -n "$PROV" ] || [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${BAIDU_TRANS_APPID:-}" ]; then
+      echo "[entrypoint] Writing translator config to $CONFIG_FILE (provider=${PROV:-auto})"
+      {
+        echo "[translate]"
+        if [ -n "$PROV" ]; then echo "provider = \"$PROV\""; fi
+        if [ -n "${OPENAI_BASE_URL:-}" ]; then echo "openai_base_url = \"${OPENAI_BASE_URL}\""; fi
+        if [ -n "${OPENAI_API_KEY:-}" ]; then echo "openai_api_key = \"${OPENAI_API_KEY}\""; fi
+        if [ -n "${OPENAI_MODEL:-}" ]; then echo "openai_model = \"${OPENAI_MODEL}\""; fi
+        if [ -n "${BAIDU_TRANS_APPID:-}" ]; then echo "baidu_trans_appid = \"${BAIDU_TRANS_APPID}\""; fi
+        if [ -n "${BAIDU_TRANS_APIKEY:-}" ]; then echo "baidu_trans_apikey = \"${BAIDU_TRANS_APIKEY}\""; fi
+      } >> "$CONFIG_FILE.tmp"
+      mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    else
+      rm -f "$CONFIG_FILE.tmp"
+    fi
     cd "${APP_DIR}"
     # Prefer packaged FastAPI app if present
     if [ -f "${APP_DIR}/meme_generator/app.py" ]; then
@@ -47,6 +75,77 @@ from meme_generator.manager import get_meme, get_memes
 from meme_generator.exception import NoSuchMeme
 from meme_generator.utils import MemeProperties, render_meme_list
 import uvicorn
+import httpx
+
+# Optional: monkey-patch translator to use OpenAI-compatible API when configured
+from meme_generator.config import meme_config
+import meme_generator.utils as _utils
+
+_orig_translate = _utils.translate
+
+def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -> str:
+    tc = getattr(meme_config, "translate", None)
+    if not tc:
+        return _orig_translate(text, lang_from, lang_to)
+    provider = getattr(tc, "provider", "").lower()
+    base_url = getattr(tc, "openai_base_url", "").strip()
+    api_key = getattr(tc, "openai_api_key", "").strip()
+    model = getattr(tc, "openai_model", "").strip()
+
+    use_openai = provider == "openai" or (not provider and bool(api_key))
+    if not use_openai:
+        return _orig_translate(text, lang_from, lang_to)
+
+    if not base_url or not api_key or not model:
+        raise RuntimeError("OpenAI 翻译未配置完整：请设置 openai_base_url / openai_api_key / openai_model")
+
+    lang_map = {
+        "zh": "Chinese",
+        "zh-cn": "Chinese",
+        "zh-hans": "Chinese",
+        "en": "English",
+        "jp": "Japanese",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "fr": "French",
+        "de": "German",
+        "ru": "Russian",
+        "es": "Spanish",
+    }
+    target_lang = lang_map.get((lang_to or "").lower(), lang_to)
+
+    url = base_url.rstrip("/") + "/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {
+        "model": model,
+        "temperature": 0,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a professional translation engine. "
+                    f"Translate the user text to {target_lang}. "
+                    "Only output the translated text without any extra words, quotes, or explanations. "
+                    "Preserve numbers, emoji, and links."
+                ),
+            },
+            {"role": "user", "content": text},
+        ],
+    }
+    try:
+        r = httpx.post(url, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        choices = data.get("choices") or []
+        content = choices[0].get("message", {}).get("content") if choices else None
+        if not content:
+            raise RuntimeError("OpenAI 翻译失败：空结果")
+        return str(content).strip()
+    except Exception as e:
+        raise RuntimeError(f"OpenAI 翻译失败: {e}")
+
+# Patch in place so memes using translate() pick it up (e.g., dianzhongdian)
+_utils.translate = _openai_translate
 
 # Prepend an override for /memes/render_list that computes the list at request time
 class MemeKeyWithProperties(BaseModel):
