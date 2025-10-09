@@ -33,12 +33,17 @@ RUN apt-get update \
 
 WORKDIR /opt/src
 
-# Clone the three repos (shallow clones for speed)
-RUN git clone --depth 1 --branch ${MEME_GENERATOR_REF} ${MEME_GENERATOR_REPO} meme-generator \
- && git clone --depth 1 --branch ${CONTRIB_REF} ${CONTRIB_REPO} meme-generator-contrib \
- && git clone --depth 1 --branch ${EMOJI_REF} ${EMOJI_REPO} meme_emoji \
- && git clone --depth 1 --branch ${NSFW_REF} ${NSFW_REPO} meme_emoji_nsfw \
- && git clone --depth 1 --branch ${JJ_REF} ${JJ_REPO} meme-generator-jj
+# Clone the repos (shallow clones for speed); fall back to 'master' if branch not found
+RUN set -eux; \
+    git clone --depth 1 --branch "${MEME_GENERATOR_REF}" "${MEME_GENERATOR_REPO}" meme-generator; \
+    git clone --depth 1 --branch "${CONTRIB_REF}" "${CONTRIB_REPO}" meme-generator-contrib; \
+    git clone --depth 1 --branch "${EMOJI_REF}" "${EMOJI_REPO}" meme_emoji; \
+    nsfw_ref="${NSFW_REF}"; \
+    if ! git ls-remote --heads "${NSFW_REPO}" "${NSFW_REF}" >/dev/null 2>&1; then nsfw_ref=master; fi; \
+    git clone --depth 1 --branch "$nsfw_ref" "${NSFW_REPO}" meme_emoji_nsfw || echo "[WARN] NSFW repo clone failed, will be skipped if missing"; \
+    jj_ref="${JJ_REF}"; \
+    if ! git ls-remote --heads "${JJ_REPO}" "${JJ_REF}" >/dev/null 2>&1; then jj_ref=master; fi; \
+    git clone --depth 1 --branch "$jj_ref" "${JJ_REPO}" meme-generator-jj || echo "[WARN] JJ repo clone failed, will be skipped if missing";
 
 # Copy aggregation tool and run it to produce infos.json and keyMap.json
 COPY scripts/aggregate_packs.py /opt/tools/aggregate_packs.py
