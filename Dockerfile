@@ -6,6 +6,8 @@ ARG EMOJI_REPO=https://github.com/anyliew/meme_emoji.git
 ARG EMOJI_REF=main
 ARG NSFW_REPO=https://github.com/anyliew/meme_emoji_nsfw.git
 ARG NSFW_REF=main
+ARG JJ_REPO=https://github.com/jinjiao007/meme-generator-jj.git
+ARG JJ_REF=main
 
 # Builder stage: clone repos and aggregate pack metadata
 FROM node:20-bookworm-slim AS builder
@@ -18,6 +20,8 @@ ARG EMOJI_REPO
 ARG EMOJI_REF
 ARG NSFW_REPO
 ARG NSFW_REF
+ARG JJ_REPO
+ARG JJ_REF
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -33,7 +37,8 @@ WORKDIR /opt/src
 RUN git clone --depth 1 --branch ${MEME_GENERATOR_REF} ${MEME_GENERATOR_REPO} meme-generator \
  && git clone --depth 1 --branch ${CONTRIB_REF} ${CONTRIB_REPO} meme-generator-contrib \
  && git clone --depth 1 --branch ${EMOJI_REF} ${EMOJI_REPO} meme_emoji \
- && git clone --depth 1 --branch ${NSFW_REF} ${NSFW_REPO} meme_emoji_nsfw
+ && git clone --depth 1 --branch ${NSFW_REF} ${NSFW_REPO} meme_emoji_nsfw \
+ && git clone --depth 1 --branch ${JJ_REF} ${JJ_REPO} meme-generator-jj
 
 # Copy aggregation tool and run it to produce infos.json and keyMap.json
 COPY scripts/aggregate_packs.py /opt/tools/aggregate_packs.py
@@ -43,6 +48,7 @@ RUN mkdir -p /opt/bundle \
       --src /opt/src/meme-generator-contrib \
       --src /opt/src/meme_emoji \
       --src /opt/src/meme_emoji_nsfw \
+      --src /opt/src/meme-generator-jj \
       --out-dir /opt/bundle
 
 # Runtime stage: include main app + aggregated assets and metadata
@@ -90,6 +96,7 @@ COPY --from=builder /opt/src/meme-generator-contrib /app/meme-generator-contrib
 # Optional: keep raw repo for reference or future use
 COPY --from=builder /opt/src/meme_emoji /app/meme_emoji
 COPY --from=builder /opt/src/meme_emoji_nsfw /app/meme_emoji_nsfw
+COPY --from=builder /opt/src/meme-generator-jj /app/meme-generator-jj
 COPY --from=builder /opt/bundle /app/data
 
 # Try to install Node dependencies if present
