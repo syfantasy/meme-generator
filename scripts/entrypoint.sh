@@ -232,13 +232,19 @@ def _openai_translate(text: str, lang_from: str = "auto", lang_to: str = "zh") -
 _utils.translate = _openai_translate
 print("[bootstrap] translate() monkey-patched for OpenAI provider", flush=True)
 
-# Manually load builtin memes AFTER patching translate
-pkg_dir = Path(importlib.import_module('meme_generator').__file__).parent
-memes_dir = pkg_dir / 'memes'
-if memes_dir.exists():
-    for path in memes_dir.iterdir():
-        if path.is_dir():
-            load_meme(f"meme_generator.memes.{path.name}")
+# Load builtin memes from source tree first (assets guaranteed), fallback to installed package
+src_memes_dir = Path("/app/meme-generator/meme_generator/memes")
+if src_memes_dir.exists():
+    print(f"[bootstrap] Loading builtin memes from source: {src_memes_dir}", flush=True)
+    load_memes(str(src_memes_dir))
+else:
+    pkg_dir = Path(importlib.import_module('meme_generator').__file__).parent
+    memes_dir = pkg_dir / 'memes'
+    print(f"[bootstrap] Loading builtin memes from package: {memes_dir}", flush=True)
+    if memes_dir.exists():
+        for path in memes_dir.iterdir():
+            if path.is_dir():
+                load_meme(f"meme_generator.memes.{path.name}")
 
 # Prepend an override for /memes/render_list that computes the list at request time
 class MemeKeyWithProperties(BaseModel):
