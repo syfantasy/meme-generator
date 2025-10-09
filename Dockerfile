@@ -16,6 +16,8 @@ ARG CONTRIB_REPO
 ARG CONTRIB_REF
 ARG EMOJI_REPO
 ARG EMOJI_REF
+ARG NSFW_REPO
+ARG NSFW_REF
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
