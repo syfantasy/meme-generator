@@ -284,6 +284,7 @@ def render_list(params: RenderMemeListRequest = RenderMemeListRequest()):
 load_memes("/app/meme-generator-contrib/memes")
 load_memes("/app/meme_emoji/emoji")
 load_memes("/app/meme_emoji_nsfw/emoji")
+load_memes("/app/meme-generator-jj/memes")
 register_routers()
 
 # Mount static aggregated data under /memes/static
