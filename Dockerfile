@@ -39,11 +39,13 @@ RUN set -eux; \
     git clone --depth 1 --branch "${CONTRIB_REF}" "${CONTRIB_REPO}" meme-generator-contrib; \
     git clone --depth 1 --branch "${EMOJI_REF}" "${EMOJI_REPO}" meme_emoji; \
     nsfw_ref="${NSFW_REF}"; \
-    if ! git ls-remote --heads "${NSFW_REPO}" "${NSFW_REF}" >/dev/null 2>&1; then nsfw_ref=master; fi; \
-    git clone --depth 1 --branch "$nsfw_ref" "${NSFW_REPO}" meme_emoji_nsfw || echo "[WARN] NSFW repo clone failed, will be skipped if missing"; \
+    if ! git ls-remote --heads "${NSFW_REPO}" "${NSFW_REF}" | grep -q .; then nsfw_ref=master; fi; \
+    git clone --depth 1 --branch "$nsfw_ref" "${NSFW_REPO}" meme_emoji_nsfw \
+      || { echo "[WARN] NSFW repo clone failed, creating empty dir"; mkdir -p meme_emoji_nsfw; }; \
     jj_ref="${JJ_REF}"; \
-    if ! git ls-remote --heads "${JJ_REPO}" "${JJ_REF}" >/dev/null 2>&1; then jj_ref=master; fi; \
-    git clone --depth 1 --branch "$jj_ref" "${JJ_REPO}" meme-generator-jj || echo "[WARN] JJ repo clone failed, will be skipped if missing";
+    if ! git ls-remote --heads "${JJ_REPO}" "${JJ_REF}" | grep -q .; then jj_ref=master; fi; \
+    git clone --depth 1 --branch "$jj_ref" "${JJ_REPO}" meme-generator-jj \
+      || { echo "[WARN] JJ repo clone failed, creating empty dir"; mkdir -p meme-generator-jj; };
 
 # Copy aggregation tool and run it to produce infos.json and keyMap.json
 COPY scripts/aggregate_packs.py /opt/tools/aggregate_packs.py
