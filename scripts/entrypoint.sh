@@ -246,10 +246,11 @@ data_dir = os.environ.get("MEME_DATA_DIR", "/app/data")
 # Dynamic infos.json and keyMap.json built from loaded memes
 from meme_generator.manager import get_memes
 from meme_generator.app import MemeInfoResponse, MemeParamsResponse
+from collections import OrderedDict
 
 def build_infos_and_keymap():
     infos = {}
-    keymap = {}
+    pairs = []  # collect (keyword, meme_key)
     for meme in sorted(get_memes(), key=lambda m: m.key):
         args_type_response = None
         if meme.params_type.args_type:
@@ -279,7 +280,13 @@ def build_infos_and_keymap():
             "date_modified": meme.date_modified,
         }
         for kw in meme.keywords:
-            keymap[kw] = meme.key
+            pairs.append((kw, meme.key))
+
+    # Insert keywords in descending length order so longer triggers come first.
+    keymap = OrderedDict()
+    for kw, key in sorted(pairs, key=lambda x: len(x[0]), reverse=True):
+        if kw not in keymap:
+            keymap[kw] = key
     return infos, keymap
 
 @app.get("/memes/static/infos.json")
@@ -302,11 +309,11 @@ PY
     # Prefer FastAPI via uvicorn if detected
     if [ -f app.py ] && grep -q "FastAPI(" app.py; then
       echo "[entrypoint] Detected FastAPI in app.py; starting uvicorn app:app"
-      exec uvicorn app:app --host 0.0.0.0 --port 8000
+      exec uvicorn app:app --host 0.0.0.0 --port "${PORT:-8000}"
     fi
     if [ -f main.py ] && grep -q "FastAPI(" main.py; then
       echo "[entrypoint] Detected FastAPI in main.py; starting uvicorn main:app"
-      exec uvicorn main:app --host 0.0.0.0 --port 8000
+      exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}"
     fi
     # Generic python entry
     if [ -f app.py ]; then
@@ -330,9 +337,9 @@ fallback_static() {
   if [ -d "${DATA_DIR}/assets" ]; then
     ln -snf "${DATA_DIR}/assets" "${STATIC_DIR}/assets"
   fi
-  echo "[entrypoint] Visit http://localhost:8000${STATIC_PREFIX}/infos.json"
+  echo "[entrypoint] Visit http://localhost:${PORT:-8000}${STATIC_PREFIX}/infos.json"
   cd "${WEBROOT}"
-  exec python -m http.server 8000
+  exec python -m http.server "${PORT:-8000}"
 }
 
 # Allow explicit override
