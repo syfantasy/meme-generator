@@ -8,6 +8,8 @@ ARG NSFW_REPO=https://github.com/anyliew/meme_emoji_nsfw.git
 ARG NSFW_REF=main
 ARG JJ_REPO=https://github.com/jinjiao007/meme-generator-jj.git
 ARG JJ_REF=main
+ARG TUDOU_REPO=https://github.com/LRZ9712/tudou-meme.git
+ARG TUDOU_REF=main
 
 # Builder stage: clone repos and aggregate pack metadata
 FROM node:20-bookworm-slim AS builder
@@ -22,6 +24,8 @@ ARG NSFW_REPO
 ARG NSFW_REF
 ARG JJ_REPO
 ARG JJ_REF
+ARG TUDOU_REPO
+ARG TUDOU_REF
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -45,7 +49,12 @@ RUN set -eux; \
     jj_ref="${JJ_REF}"; \
     if ! git ls-remote --heads "${JJ_REPO}" "${JJ_REF}" | grep -q .; then jj_ref=master; fi; \
     git clone --depth 1 --branch "$jj_ref" "${JJ_REPO}" meme-generator-jj \
-      || { echo "[WARN] JJ repo clone failed, creating empty dir"; mkdir -p meme-generator-jj; };
+      || { echo "[WARN] JJ repo clone failed, creating empty dir"; mkdir -p meme-generator-jj; }; \
+    tudou_ref="${TUDOU_REF}"; \
+    if ! git ls-remote --heads "${TUDOU_REPO}" "${TUDOU_REF}" | grep -q .; then tudou_ref=master; fi; \
+    git clone --depth 1 --branch "$tudou_ref" "${TUDOU_REPO}" tudou-meme \
+      || { echo "[WARN] tudou-meme repo clone failed, creating empty dir"; mkdir -p tudou-meme/meme; }; \
+    touch tudou-meme/meme/__init__.py
 
 # Copy aggregation tool and run it to produce infos.json and keyMap.json
 COPY scripts/aggregate_packs.py /opt/tools/aggregate_packs.py
@@ -56,6 +65,7 @@ RUN mkdir -p /opt/bundle \
       --src /opt/src/meme_emoji \
       --src /opt/src/meme_emoji_nsfw \
       --src /opt/src/meme-generator-jj \
+      --src /opt/src/tudou-meme \
       --out-dir /opt/bundle
 
 # Runtime stage: include main app + aggregated assets and metadata
@@ -104,6 +114,7 @@ COPY --from=builder /opt/src/meme-generator-contrib /app/meme-generator-contrib
 COPY --from=builder /opt/src/meme_emoji /app/meme_emoji
 COPY --from=builder /opt/src/meme_emoji_nsfw /app/meme_emoji_nsfw
 COPY --from=builder /opt/src/meme-generator-jj /app/meme-generator-jj
+COPY --from=builder /opt/src/tudou-meme /app/tudou-meme
 COPY --from=builder /opt/bundle /app/data
 
 # Try to install Node dependencies if present
@@ -120,14 +131,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Python deps: ensure uvicorn + app install (pyproject or setup)
 RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir uvicorn fastapi toml
-RUN if [ -f /app/meme-generator/requirements.txt ]; then \
+ && pip install --no-cache-dir uvicorn fastapi toml \
+ && if [ -f /app/meme-generator/requirements.txt ]; then \
       pip install --no-cache-dir -r /app/meme-generator/requirements.txt; \
-    fi
-RUN if [ -f /app/meme_emoji/requirements.txt ]; then \
+    fi \
+ && if [ -f /app/meme_emoji/requirements.txt ]; then \
       pip install --no-cache-dir -r /app/meme_emoji/requirements.txt; \
-    fi
-RUN if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
+    fi \
+ && if [ -f /app/meme-generator/pyproject.toml ] || [ -f /app/meme-generator/setup.py ]; then \
       pip install --no-cache-dir /app/meme-generator; \
     fi
 

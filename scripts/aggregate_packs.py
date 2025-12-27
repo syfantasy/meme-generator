@@ -89,6 +89,8 @@ def detect_repo_name(path: Path) -> str:
         return "contrib"
     if name == "meme-generator":
         return "main"
+    if name == "tudou-meme":
+        return "tudou"
     return name
 
 
@@ -102,8 +104,9 @@ def group_by_pack(root: Path, files: List[Path]) -> Dict[str, List[Path]]:
         # Better heuristics for common layouts:
         # - emoji/<pack>/images/*.png  => pack
         # - memes/<pack>/images/*.png  => pack
+        # - meme/<pack>/images/*.png   => pack (tudou-meme style)
         # - meme_generator/memes/<pack>/... => pack
-        if len(parts) >= 3 and parts[0] in {"emoji", "memes"}:
+        if len(parts) >= 3 and parts[0] in {"emoji", "memes", "meme"}:
             pack_key = parts[1]
         elif len(parts) >= 4 and parts[0] == "meme_generator" and parts[1] == "memes":
             pack_key = parts[2]

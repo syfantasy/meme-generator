@@ -291,6 +291,7 @@ load_memes("/app/meme-generator-contrib/memes")
 load_memes("/app/meme_emoji/emoji")
 load_memes("/app/meme_emoji_nsfw/emoji")
 load_memes("/app/meme-generator-jj/memes")
+load_memes("/app/tudou-meme/meme")
 register_routers()
 
 # Mount static aggregated data under /memes/static
