@@ -20,6 +20,21 @@ on:
         type: string
         required: false
         default: main
+      nsfw_ref:
+        description: Branch/Tag/SHA for meme_emoji_nsfw
+        type: string
+        required: false
+        default: main
+      jj_ref:
+        description: Branch/Tag/SHA for meme-generator-jj
+        type: string
+        required: false
+        default: main
+      tudou_ref:
+        description: Branch/Tag/SHA for tudou-meme
+        type: string
+        required: false
+        default: main
 
 permissions:
   contents: read
@@ -73,6 +88,9 @@ jobs:
             MEME_GENERATOR_REF=${{ github.event.inputs.meme_generator_ref || 'main' }}
             CONTRIB_REF=${{ github.event.inputs.contrib_ref || 'main' }}
             EMOJI_REF=${{ github.event.inputs.emoji_ref || 'main' }}
+            NSFW_REF=${{ github.event.inputs.nsfw_ref || 'main' }}
+            JJ_REF=${{ github.event.inputs.jj_ref || 'main' }}
+            TUDOU_REF=${{ github.event.inputs.tudou_ref || 'main' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
