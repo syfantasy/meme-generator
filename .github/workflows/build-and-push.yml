@@ -29,9 +29,14 @@ on:
         description: Branch/Tag/SHA for meme-generator-jj
         type: string
         required: false
-        default: main
+        default: master
       tudou_ref:
         description: Branch/Tag/SHA for tudou-meme
+        type: string
+        required: false
+        default: main
+      cute_ref:
+        description: Branch/Tag/SHA for meme-generator-cute
         type: string
         required: false
         default: main
@@ -91,6 +96,7 @@ jobs:
             NSFW_REF=${{ github.event.inputs.nsfw_ref || 'main' }}
             JJ_REF=${{ github.event.inputs.jj_ref || 'main' }}
             TUDOU_REF=${{ github.event.inputs.tudou_ref || 'main' }}
+            CUTE_REF=${{ github.event.inputs.cute_ref || 'main' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

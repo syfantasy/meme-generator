@@ -6,7 +6,8 @@ const memeSrcDirs = [
   path.resolve('meme-generator', 'memes'), // 假设主仓库的 memes 目录
   path.resolve('meme-generator', 'core', 'memes'), // 另一个可能的路径
   path.resolve('meme-generator-contrib', 'memes'),
-  path.resolve('meme_emoji', 'emoji')
+  path.resolve('meme_emoji', 'emoji'),
+  path.resolve('meme-generator-cute', 'memes'),
 ];
 
 let infos = {};
