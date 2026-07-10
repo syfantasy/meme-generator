@@ -91,8 +91,6 @@ def detect_repo_name(path: Path) -> str:
         return "main"
     if name == "tudou-meme":
         return "tudou"
-    if name == "meme-generator-cute":
-        return "cute"
     return name
 
 

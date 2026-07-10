@@ -29,7 +29,7 @@ on:
         description: Branch/Tag/SHA for meme-generator-jj
         type: string
         required: false
-        default: master
+        default: main
       tudou_ref:
         description: Branch/Tag/SHA for tudou-meme
         type: string
@@ -99,4 +99,3 @@ jobs:
             CUTE_REF=${{ github.event.inputs.cute_ref || 'main' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-

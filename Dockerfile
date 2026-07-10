@@ -62,8 +62,7 @@ RUN set -eux; \
     cute_ref="${CUTE_REF}"; \
     if ! git ls-remote --heads "${CUTE_REPO}" "${CUTE_REF}" | grep -q .; then cute_ref=master; fi; \
     git clone --depth 1 --branch "$cute_ref" "${CUTE_REPO}" meme-generator-cute \
-      || { echo "[WARN] meme-generator-cute repo clone failed, creating empty dir"; mkdir -p meme-generator-cute/memes; }; \
-    touch meme-generator-cute/memes/__init__.py
+      || { echo "[WARN] meme-generator-cute clone failed, creating empty dir"; mkdir -p meme-generator-cute/memes; }
 
 # Copy aggregation tool and run it to produce infos.json and keyMap.json
 COPY scripts/aggregate_packs.py /opt/tools/aggregate_packs.py
@@ -81,9 +80,26 @@ RUN mkdir -p /opt/bundle \
 # Runtime stage: include main app + aggregated assets and metadata
 FROM node:20-bookworm-slim AS runner
 
+ARG MEME_GENERATOR_REPO
+ARG MEME_GENERATOR_REF
+ARG CONTRIB_REPO
+ARG CONTRIB_REF
+ARG EMOJI_REPO
+ARG EMOJI_REF
+ARG NSFW_REPO
+ARG NSFW_REF
+ARG JJ_REPO
+ARG JJ_REF
+ARG TUDOU_REPO
+ARG TUDOU_REF
+ARG CUTE_REPO
+ARG CUTE_REF
+
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+       git \
+       ca-certificates \
        python3 \
        python3-pip \
        python3-venv \
@@ -153,10 +169,28 @@ RUN pip install --no-cache-dir --upgrade pip \
       pip install --no-cache-dir /app/meme-generator; \
     fi
 
+COPY scripts/sync_repos.sh /usr/local/bin/sync-meme-repos
 COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /usr/local/bin/sync-meme-repos /entrypoint.sh
 
 ENV MEME_DATA_DIR=/app/data
+ENV MEME_GENERATOR_REPO=${MEME_GENERATOR_REPO} \
+    MEME_GENERATOR_REF=${MEME_GENERATOR_REF} \
+    CONTRIB_REPO=${CONTRIB_REPO} \
+    CONTRIB_REF=${CONTRIB_REF} \
+    EMOJI_REPO=${EMOJI_REPO} \
+    EMOJI_REF=${EMOJI_REF} \
+    NSFW_REPO=${NSFW_REPO} \
+    NSFW_REF=${NSFW_REF} \
+    JJ_REPO=${JJ_REPO} \
+    JJ_REF=${JJ_REF} \
+    TUDOU_REPO=${TUDOU_REPO} \
+    TUDOU_REF=${TUDOU_REF} \
+    CUTE_REPO=${CUTE_REPO} \
+    CUTE_REF=${CUTE_REF} \
+    MEME_SYNC_ENABLED=true \
+    MEME_SYNC_STRICT=false \
+    MEME_SYNC_INSTALL_DEPS=auto
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 EXPOSE 3000 5173 8000
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]

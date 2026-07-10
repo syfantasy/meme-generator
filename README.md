@@ -7,7 +7,8 @@ This repo builds a unified Docker image that bundles:
 - Emoji pack: `anyliew/meme_emoji`
 - Emoji NSFW pack: `anyliew/meme_emoji_nsfw`
 - JJ pack: `jinjiao007/meme-generator-jj`
-- Tudou pack: `tudougin/tudou-meme`
+- Tudou pack: `LRZ9712/tudou-meme`
+- Cute pack: `AIGC-Yunzai/meme-generator-cute`
 
 During the Docker build, all packs are scanned and aggregated into two static JSON files for fast lookup:
 
@@ -15,6 +16,37 @@ During the Docker build, all packs are scanned and aggregated into two static JS
 - `keyMap.json`: keyword -> item id mapping
 
 The aggregated assets and JSON are placed under `/app/data` in the image.
+
+## Runtime Upstream Updates
+
+The image keeps a build-time snapshot of every upstream repository and updates
+those working trees before the API starts. A Render redeploy/restart or a
+Hugging Face Space restart therefore picks up normal meme code and asset
+updates without rebuilding and publishing this image.
+
+The bundled snapshot remains available as a fallback. If GitHub is temporarily
+unavailable, startup logs a warning and continues with the version already in
+the image.
+
+Runtime controls:
+
+- `MEME_SYNC_ENABLED` — enable startup sync, default `true`
+- `MEME_SYNC_STRICT` — fail startup when the required main repository or a
+  dependency refresh fails, default `false`
+- `MEME_SYNC_INSTALL_DEPS` — install changed Python dependency manifests;
+  `auto` by default, or set to `false` to require image rebuilds for deps
+- `MEME_SYNC_GIT_TIMEOUT` — timeout for each Git operation in seconds, default
+  `300`
+- `MEME_APP_ROOT` — repository root inside the image, default `/app`
+
+The `*_REPO` and `*_REF` variables shown in the Dockerfile can also be
+overridden at runtime. Adding a completely new repository, changing native
+system packages, or adapting to a breaking upstream API still requires a new
+image build.
+
+The live render API and the dynamic `infos.json` / `keyMap.json` endpoints use
+the updated source trees. `/app/data/assets` is the build-time aggregate and is
+kept mainly as a static fallback.
 
 ## Build Locally
 
@@ -28,6 +60,7 @@ docker build \
   --build-arg NSFW_REF=main \
   --build-arg JJ_REF=main \
   --build-arg TUDOU_REF=main \
+  --build-arg CUTE_REF=main \
   -t unified-meme:dev .
 ```
 
@@ -74,15 +107,20 @@ Tags pushed:
 - `ghcr.io/<owner>/<repo>:sha-<git-sha>` (always)
 - `ghcr.io/<owner>/<repo>:latest` (on `main`)
 
-Customizing refs for the three repos (manual run):
+Customizing refs for the repos (manual run):
 
 - `meme_generator_ref` (default: `main`)
 - `contrib_ref` (default: `main`)
 - `emoji_ref` (default: `main`)
+- `nsfw_ref` (default: `main`)
+- `jj_ref` (default: `main`)
+- `tudou_ref` (default: `main`)
+- `cute_ref` (default: `main`)
 
 ## Image Layout
 
 - `/app/meme-generator` — cloned main app sources
+- `/app/meme-generator-cute` — cloned AIGC-Yunzai cute meme pack
 - `/app/data/assets/<pack>/...` — consolidated assets from all repos
 - `/app/data/infos.json` — detailed metadata
 - `/app/data/keyMap.json` — keyword -> item id mapping
