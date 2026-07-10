@@ -122,6 +122,7 @@ emoji_commit_before="$(git -C "${APP_ROOT}/meme_emoji" rev-parse HEAD 2>/dev/nul
 nsfw_commit_before="$(git -C "${APP_ROOT}/meme_emoji_nsfw" rev-parse HEAD 2>/dev/null || echo missing)"
 jj_commit_before="$(git -C "${APP_ROOT}/meme-generator-jj" rev-parse HEAD 2>/dev/null || echo missing)"
 tudou_commit_before="$(git -C "${APP_ROOT}/tudou-meme" rev-parse HEAD 2>/dev/null || echo missing)"
+cute_commit_before="$(git -C "${APP_ROOT}/meme-generator-cute" rev-parse HEAD 2>/dev/null || echo missing)"
 
 failures=0
 sync_repo "meme-generator" "${MEME_GENERATOR_REPO:-https://github.com/MemeCrafters/meme-generator.git}" "${MEME_GENERATOR_REF:-main}" required || failures=$((failures + 1))
@@ -130,6 +131,7 @@ sync_repo "meme_emoji" "${EMOJI_REPO:-https://github.com/anyliew/meme_emoji.git}
 sync_repo "meme_emoji_nsfw" "${NSFW_REPO:-https://github.com/anyliew/meme_emoji_nsfw.git}" "${NSFW_REF:-main}" optional || true
 sync_repo "meme-generator-jj" "${JJ_REPO:-https://github.com/jinjiao007/meme-generator-jj.git}" "${JJ_REF:-main}" optional || true
 sync_repo "tudou-meme" "${TUDOU_REPO:-https://github.com/LRZ9712/tudou-meme.git}" "${TUDOU_REF:-main}" optional || true
+sync_repo "meme-generator-cute" "${CUTE_REPO:-https://github.com/AIGC-Yunzai/meme-generator-cute.git}" "${CUTE_REF:-main}" optional || true
 
 # tudou-meme is loaded as a Python package by the bootstrap code.
 mkdir -p "${APP_ROOT}/tudou-meme/meme"
@@ -168,6 +170,7 @@ install_if_changed() {
         rollback_repo "${APP_ROOT}/meme_emoji_nsfw" "$nsfw_commit_before" "meme_emoji_nsfw"
         rollback_repo "${APP_ROOT}/meme-generator-jj" "$jj_commit_before" "meme-generator-jj"
         rollback_repo "${APP_ROOT}/tudou-meme" "$tudou_commit_before" "tudou-meme"
+        rollback_repo "${APP_ROOT}/meme-generator-cute" "$cute_commit_before" "meme-generator-cute"
       else
         rollback_repo "$rollback_dir" "$rollback_commit" "$label"
       fi

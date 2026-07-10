@@ -8,6 +8,7 @@ This repo builds a unified Docker image that bundles:
 - Emoji NSFW pack: `anyliew/meme_emoji_nsfw`
 - JJ pack: `jinjiao007/meme-generator-jj`
 - Tudou pack: `LRZ9712/tudou-meme`
+- Cute pack: `AIGC-Yunzai/meme-generator-cute`
 
 During the Docker build, all packs are scanned and aggregated into two static JSON files for fast lookup:
 
@@ -59,6 +60,7 @@ docker build \
   --build-arg NSFW_REF=main \
   --build-arg JJ_REF=main \
   --build-arg TUDOU_REF=main \
+  --build-arg CUTE_REF=main \
   -t unified-meme:dev .
 ```
 
@@ -113,10 +115,12 @@ Customizing refs for the repos (manual run):
 - `nsfw_ref` (default: `main`)
 - `jj_ref` (default: `main`)
 - `tudou_ref` (default: `main`)
+- `cute_ref` (default: `main`)
 
 ## Image Layout
 
 - `/app/meme-generator` — cloned main app sources
+- `/app/meme-generator-cute` — cloned AIGC-Yunzai cute meme pack
 - `/app/data/assets/<pack>/...` — consolidated assets from all repos
 - `/app/data/infos.json` — detailed metadata
 - `/app/data/keyMap.json` — keyword -> item id mapping
