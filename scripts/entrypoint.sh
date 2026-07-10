@@ -13,6 +13,11 @@ STATIC_DIR="${WEBROOT}${STATIC_PREFIX}"
 
 echo "[entrypoint] MEME_DATA_DIR=${DATA_DIR}"
 
+if command -v sync-meme-repos >/dev/null 2>&1; then
+  echo "[entrypoint] Synchronizing upstream meme repositories"
+  sync-meme-repos
+fi
+
 try_start_node() {
   if [ -f "${APP_DIR}/package.json" ]; then
     echo "[entrypoint] Detected Node app in ${APP_DIR}"
